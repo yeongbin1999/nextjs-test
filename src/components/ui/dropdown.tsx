@@ -3,10 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 
 interface DropdownProps {
   trigger: React.ReactNode;
-  children: React.ReactNode | ((props: { onClose: () => void }) => React.ReactNode);
+  children:
+    | React.ReactNode
+    | ((props: { onClose: () => void }) => React.ReactNode);
   className?: string;
   align?: 'left' | 'right';
 }
@@ -19,6 +22,11 @@ export function Dropdown({
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -37,7 +45,9 @@ export function Dropdown({
   // children에 onClose prop을 내려줌
   const childrenWithOnClose =
     typeof children === 'function'
-      ? (children as (props: { onClose: () => void }) => React.ReactNode)({ onClose: () => setIsOpen(false) })
+      ? (children as (props: { onClose: () => void }) => React.ReactNode)({
+          onClose: () => setIsOpen(false),
+        })
       : children;
 
   return (

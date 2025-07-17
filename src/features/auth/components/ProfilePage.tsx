@@ -81,11 +81,15 @@ export function ProfilePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
       <div className="bg-white rounded-2xl shadow-2xl p-8 min-w-[500px] max-w-2xl w-full">
-        <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">내 정보</h2>
+        <h2 className="text-2xl font-bold mb-8 text-center text-gray-900">
+          내 정보
+        </h2>
         <div className="space-y-5 mb-12">
           {/* 이메일(아이디) - 항상 읽기 전용 */}
           <div className="flex items-center justify-between gap-4">
-            <label className="text-gray-700 font-medium w-24">이메일(아이디)</label>
+            <label className="text-gray-700 font-medium w-24">
+              이메일(아이디)
+            </label>
             <input
               name="email"
               value={user?.email || ''}
@@ -124,7 +128,9 @@ export function ProfilePage() {
           </div>
           {/* 기본 배송지 */}
           <div className="flex items-center justify-between gap-4">
-            <label className="text-gray-700 font-medium w-24">기본 배송지</label>
+            <label className="text-gray-700 font-medium w-24">
+              기본 배송지
+            </label>
             <input
               name="address"
               value={form.address}
@@ -150,7 +156,7 @@ export function ProfilePage() {
             <>
               <button
                 onClick={handleSave}
-                className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 text-sm font-semibold shadow-sm transition"
+                className="bg-amber-200 text-amber-900 px-4 py-2 rounded hover:bg-amber-300 text-sm font-semibold shadow-sm transition"
               >
                 저장
               </button>
@@ -164,7 +170,7 @@ export function ProfilePage() {
           ) : (
             <button
               onClick={() => setEditMode(true)}
-              className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 text-sm font-semibold shadow-sm transition"
+              className="bg-amber-200 text-amber-900 px-4 py-2 rounded hover:bg-amber-300 text-sm font-semibold shadow-sm transition"
             >
               회원정보 수정
             </button>
@@ -172,14 +178,19 @@ export function ProfilePage() {
         </div>
         {/* 비밀번호 변경 모달 */}
         {showPwModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.24)' }}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.24)' }}
+          >
             <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-xs flex flex-col gap-4">
               <h3 className="text-lg font-bold mb-2">비밀번호 변경</h3>
               <input
                 type="password"
                 name="current"
                 value={pwForm.current}
-                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                onChange={e =>
+                  setPwForm(f => ({ ...f, current: e.target.value }))
+                }
                 placeholder="기존 비밀번호"
                 className="border rounded px-3 py-2"
               />
@@ -187,7 +198,9 @@ export function ProfilePage() {
                 type="password"
                 name="newPw"
                 value={pwForm.newPw}
-                onChange={e => setPwForm(f => ({ ...f, newPw: e.target.value }))}
+                onChange={e =>
+                  setPwForm(f => ({ ...f, newPw: e.target.value }))
+                }
                 placeholder="새 비밀번호"
                 className="border rounded px-3 py-2"
               />
@@ -195,18 +208,27 @@ export function ProfilePage() {
                 type="password"
                 name="confirm"
                 value={pwForm.confirm}
-                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                onChange={e =>
+                  setPwForm(f => ({ ...f, confirm: e.target.value }))
+                }
                 placeholder="비밀번호 확인"
                 className="border rounded px-3 py-2"
               />
-              {pwError && <span className="text-red-500 text-xs mt-1">{pwError}</span>}
+              {pwError && (
+                <span className="text-red-500 text-xs mt-1">{pwError}</span>
+              )}
               <div className="flex justify-end gap-2 mt-4">
                 <button
-                  className="bg-amber-600 text-white px-3 py-2 rounded hover:bg-amber-700 text-sm font-semibold"
+                  className="bg-amber-200 text-amber-900 px-3 py-2 rounded hover:bg-amber-300 text-sm font-semibold"
                   onClick={handlePwSave}
-                  disabled={!pwForm.current || !pwForm.newPw || !pwForm.confirm || !!pwError}
+                  disabled={
+                    !pwForm.current ||
+                    !pwForm.newPw ||
+                    !pwForm.confirm ||
+                    !!pwError
+                  }
                 >
-                  저장
+                  변경
                 </button>
                 <button
                   className="bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 text-sm font-semibold"
@@ -225,4 +247,4 @@ export function ProfilePage() {
       </div>
     </div>
   );
-} 
+}

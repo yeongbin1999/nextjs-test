@@ -8,11 +8,15 @@ import React from 'react';
 export function CartPage() {
   const { items, updateQuantity, removeItem, getTotalPrice } = useCartStore();
   const subtotal = getTotalPrice();
-  const [quantities, setQuantities] = useState(() => Object.fromEntries(items.map(item => [item.id, item.quantity])));
+  const [quantities, setQuantities] = useState(() =>
+    Object.fromEntries(items.map(item => [item.id, item.quantity]))
+  );
 
   // items가 바뀔 때마다 quantities 동기화
   React.useEffect(() => {
-    setQuantities(Object.fromEntries(items.map(item => [item.id, item.quantity])));
+    setQuantities(
+      Object.fromEntries(items.map(item => [item.id, item.quantity]))
+    );
   }, [items]);
 
   return (
@@ -125,4 +129,4 @@ export function CartPage() {
       </div>
     </div>
   );
-} 
+}

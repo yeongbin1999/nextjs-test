@@ -76,7 +76,7 @@ export default function Home() {
             </p>
             <Link
               href="/shop"
-              className="inline-flex items-center bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-amber-700 transition-colors"
+              className="inline-flex items-center bg-amber-200 text-amber-900 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-amber-300 transition-colors"
             >
               상품 보기
               <ArrowRight className="ml-2 w-5 h-5" />

@@ -17,7 +17,13 @@ interface AuthStore {
   login: (email: string, password: string) => Promise<void>;
 
   // 회원가입
-  register: (email: string, password: string, name: string, phone?: string, address?: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    phone?: string,
+    address?: string
+  ) => Promise<void>;
 
   // 로그아웃
   logout: () => void;

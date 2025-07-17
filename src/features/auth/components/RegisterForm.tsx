@@ -7,7 +7,6 @@ import { useAuthStore } from '../authStore';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
-    userId: '',
     email: '',
     password: '',
     name: '',
@@ -21,11 +20,7 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      await register(
-        formData.email,
-        formData.password,
-        formData.name
-      );
+      await register(formData.email, formData.password, formData.name);
       // 회원가입 성공 시 로그인 페이지로 이동
       window.location.href = '/login';
     } catch (error) {
@@ -47,26 +42,6 @@ export function RegisterForm() {
   return (
     <div className="w-full">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 아이디 */}
-        <div>
-          <label
-            htmlFor="userId"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
-            아이디 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="userId"
-            name="userId"
-            value={formData.userId}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-            placeholder="아이디를 입력하세요"
-          />
-        </div>
-
         {/* 이메일 */}
         <div>
           <label

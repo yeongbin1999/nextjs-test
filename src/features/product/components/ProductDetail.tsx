@@ -161,7 +161,10 @@ export function ProductDetail({ id }: ProductDetailProps) {
                   onBlur={handleInputBlur}
                   onKeyDown={handleInputKeyDown}
                   className="px-2 w-20 text-center border-none outline-none bg-transparent appearance-none"
-                  style={{ MozAppearance: 'textfield', WebkitAppearance: 'none' }}
+                  style={{
+                    MozAppearance: 'textfield',
+                    WebkitAppearance: 'none',
+                  }}
                 />
                 <button className="px-2 py-1" onClick={handleIncrease}>
                   +
