@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useProducts } from '@/features/product/hooks/useProducts';
 import Link from 'next/link';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 
 export function ProductGrid() {
   const { data: products, isLoading, error } = useProducts();
@@ -55,32 +56,44 @@ export function ProductGrid() {
             href={`/product/${product.id}`}
             className="block group"
           >
-            <Card className="w-full max-w-[285px] h-[400px] overflow-hidden relative hover:shadow-lg hover:shadow-gray-300 hover:scale-[1.02] transition-all duration-200 cursor-pointer">
+            <Card className="w-full max-w-[285px] h-[400px] overflow-hidden relative hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer">
               {/* 상단 이미지 */}
               <div
-                className="relative h-[280px] bg-cover bg-center"
+                className="relative h-[220px] bg-cover bg-center rounded-t-xl"
                 style={{
                   backgroundImage: `url(${product.image_url || '/placeholder.png'})`,
                 }}
               >
                 {isNew && (
-                  <Badge className="absolute top-0 right-5 bg-green-500 text-white rounded-full w-12 h-12 flex items-center justify-center font-medium text-base">
+                  <Badge
+                    className="
+                      absolute top-0 right-5
+                      bg-green-100 text-green-700
+                      border border-green-300
+                      rounded-full
+                      px-3 py-1
+                      text-xs font-bold
+                      shadow-md
+                      uppercase
+                      tracking-wider
+                      z-10
+                    "
+                  >
                     NEW
                   </Badge>
                 )}
               </div>
               {/* 하단 정보 */}
-              <CardContent className="min-h-[120px] p-4 flex flex-col justify-between">
+              <CardContent className="min-h-[120px] p-4 pr-6 pb-0 flex flex-col justify-between">
                 <div className="space-y-3">
                   <h3 className="font-semibold text-gray-800 text-2xl leading-[28.8px] line-clamp-2">
                     {product.name}
                   </h3>
                 </div>
+                <div className="text-right text-base font-bold text-gray-800">
+                  ₩ {product.price.toLocaleString()}
+                </div>
               </CardContent>
-              {/* 가격 */}
-              <div className="absolute bottom-2 right-4 text-xl font-semibold text-gray-800 text-right w-full flex justify-end">
-                ₩ {product.price.toLocaleString()}
-              </div>
             </Card>
           </Link>
         );

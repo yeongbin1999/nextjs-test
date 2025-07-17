@@ -3,15 +3,18 @@ import { productData } from '@/features/product/dummyData';
 import { mapToProduct } from '@/features/product/api';
 import { Product } from '@/features/product/types';
 
-// 상품 목록 조회
+// 가짜 API 함수 (실제 API 연결 시 이 부분만 교체)
+async function fetchProducts(): Promise<Product[]> {
+  // 실제 API 호출을 시뮬레이션 (0.5초 딜레이)
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return productData.map(mapToProduct);
+}
+
+// 상품 목록 조회 (react-query)
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
-    queryFn: async (): Promise<Product[]> => {
-      // 실제 API 호출을 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return productData.map(mapToProduct);
-    },
+    queryFn: fetchProducts,
     staleTime: 1000 * 60 * 5, // 5분
   });
 }

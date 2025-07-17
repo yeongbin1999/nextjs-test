@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { useCartStore } from '@/features/cart/cartStore';
 import React, { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface ProductDetailProps {
   id: string;
@@ -86,6 +89,8 @@ export function ProductDetail({ id }: ProductDetailProps) {
     { label: 'Sweet', value: 3 },
   ];
 
+  const isNew = product.name.includes('NEW'); // 상품명에 'NEW'가 포함되어 있는지 확인
+
   return (
     <div className="bg-white flex flex-1 flex-col">
       {showToast && (
@@ -107,7 +112,7 @@ export function ProductDetail({ id }: ProductDetailProps) {
       <div className="flex-1 flex items-center justify-center">
         <div className="max-w-[1100px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-center bg-white rounded-2xl">
           {/* 상품 이미지 */}
-          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-center min-h-[380px]">
+          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-center min-h-[380px] h-[500px] relative">
             <Image
               src={product.image_url || '/placeholder.png'}
               alt={product.name}
@@ -120,8 +125,26 @@ export function ProductDetail({ id }: ProductDetailProps) {
 
           {/* 상품 정보 */}
           <div className="flex flex-col justify-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              {product.name}
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 flex items-center gap-1">
+              {isNew && (
+                <Badge
+                  className="
+                    bg-green-100 text-green-700
+                    border border-green-300
+                    rounded-full
+                    px-2 py-0.5
+                    text-sm font-bold
+                    shadow
+                    uppercase
+                    tracking-wider
+                    align-middle
+                    inline-flex
+                  "
+                >
+                  NEW
+                </Badge>
+              )}
+              <span className="align-middle">{product.name}</span>
             </h1>
             <div className="text-gray-600 text-xl md:text-2xl mb-4">
               ₩ {Number(product.price).toLocaleString()}
