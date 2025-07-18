@@ -6,6 +6,7 @@ export interface User {
   name: string;
   phone?: string;
   address?: string;
+  role?: 'USER' | 'ADMIN';
 }
 
 interface AuthStore {
