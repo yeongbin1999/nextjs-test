@@ -1,4 +1,13 @@
 import { create } from 'zustand';
+import { apiClient } from '@/lib/backend/apiV1/client';
+import type {
+  LoginRequest,
+  SignupRequest,
+  UserResponse,
+} from '@/lib/backend/apiV1/api';
+
+// 브라우저 환경에서만 localStorage 사용
+const isBrowser = typeof window !== 'undefined';
 
 export interface User {
   id: number;
@@ -32,7 +41,7 @@ interface AuthStore {
   // 사용자 정보 업데이트
   updateUser: (user: User) => void;
 
-  // 인증 상태 확인 (나중에 API로 교체)
+  // 인증 상태 확인
   checkAuth: () => Promise<void>;
 }
 
@@ -45,19 +54,43 @@ export const useAuthStore = create<AuthStore>(set => ({
     set({ isLoading: true });
 
     try {
-      // 임시 로그인 로직 (나중에 API로 교체)
-      await new Promise(resolve => setTimeout(resolve, 10)); // API 호출 시뮬레이션
+      const loginData: LoginRequest = { email, password };
+      const response = await apiClient.api.login(loginData);
 
-      const user: User = {
-        id: 1,
-        email: email,
-        name: email.split('@')[0], // 임시로 이메일에서 이름 추출
-      };
+      // Authorization 헤더에서 토큰 추출
+      const authHeader =
+        response.headers['authorization'] ||
+        response.headers['Authorization'] ||
+        response.headers['AUTHORIZATION'];
 
-      set({ user, isAuthenticated: true, isLoading: false });
-    } catch (error) {
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        if (isBrowser) {
+          localStorage.setItem('accessToken', token);
+        }
+        console.log('✅ 토큰 저장 완료');
+      } else {
+        console.error('❌ Authorization 헤더를 찾을 수 없습니다');
+        // 토큰이 없어도 getMe로 인증 확인 시도
+      }
+
+      // 로그인 성공 후 checkAuth로 user 상태 최신화
+      if (isBrowser) {
+        await useAuthStore.getState().checkAuth();
+      }
       set({ isLoading: false });
-      throw new Error('로그인에 실패했습니다.');
+    } catch (error: any) {
+      set({ isLoading: false });
+      console.error('로그인 에러:', error);
+
+      // 백엔드에서 반환한 에러 메시지 처리
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error instanceof Error) {
+        throw new Error(`로그인에 실패했습니다: ${error.message}`);
+      } else {
+        throw new Error('로그인에 실패했습니다.');
+      }
     }
   },
 
@@ -65,24 +98,39 @@ export const useAuthStore = create<AuthStore>(set => ({
     set({ isLoading: true });
 
     try {
-      // 임시 회원가입 로직 (나중에 API로 교체)
-      await new Promise(resolve => setTimeout(resolve, 10)); // API 호출 시뮬레이션
+      const signupData: SignupRequest = { email, password, name };
+      await apiClient.api.signup(signupData);
 
-      const user: User = {
-        id: 1,
-        email: email,
-        name: name,
-      };
-
-      set({ user, isAuthenticated: true, isLoading: false });
-    } catch (error) {
       set({ isLoading: false });
-      throw new Error('회원가입에 실패했습니다.');
+      console.log('✅ 회원가입 성공');
+    } catch (error: any) {
+      set({ isLoading: false });
+      console.error('회원가입 에러:', error);
+
+      // 백엔드에서 반환한 에러 메시지 처리
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error instanceof Error) {
+        throw new Error(`회원가입에 실패했습니다: ${error.message}`);
+      } else {
+        throw new Error('회원가입에 실패했습니다.');
+      }
     }
   },
 
-  logout: () => {
-    set({ user: null, isAuthenticated: false });
+  logout: async () => {
+    try {
+      await apiClient.api.logout();
+      console.log('✅ 로그아웃 성공');
+    } catch (error) {
+      console.error('로그아웃 에러:', error);
+    } finally {
+      // 로컬 상태 초기화
+      if (isBrowser) {
+        localStorage.removeItem('accessToken');
+      }
+      set({ user: null, isAuthenticated: false });
+    }
   },
 
   updateUser: (user: User) => {
@@ -90,7 +138,34 @@ export const useAuthStore = create<AuthStore>(set => ({
   },
 
   checkAuth: async () => {
-    // 임시로 항상 로그아웃 상태 (나중에 API로 교체)
-    set({ user: null, isAuthenticated: false });
+    try {
+      if (!isBrowser) return;
+
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        set({ user: null, isAuthenticated: false });
+        return;
+      }
+
+      const userResponse = await apiClient.api.getMe();
+      const userData = userResponse.data;
+
+      const user: User = {
+        id: userData.id || 0,
+        email: userData.email || '',
+        name: userData.name || '',
+        phone: userData.phone,
+        address: userData.address,
+        role: 'USER',
+      };
+
+      set({ user, isAuthenticated: true });
+    } catch (error) {
+      console.error('인증 확인 에러:', error);
+      if (isBrowser) {
+        localStorage.removeItem('accessToken');
+      }
+      set({ user: null, isAuthenticated: false });
+    }
   },
 }));

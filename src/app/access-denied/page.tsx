@@ -20,7 +20,7 @@ export default function AccessDeniedPage() {
             관리자에게 문의하시거나 홈으로 돌아가세요.
           </p>
         </div>
-        
+
         <div className="space-y-3">
           <Link
             href="/"
@@ -29,7 +29,7 @@ export default function AccessDeniedPage() {
             <Home className="w-4 h-4" />
             홈으로 돌아가기
           </Link>
-          
+
           <button
             onClick={() => window.history.back()}
             className="w-full bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
@@ -41,4 +41,4 @@ export default function AccessDeniedPage() {
       </div>
     </div>
   );
-} 
+}

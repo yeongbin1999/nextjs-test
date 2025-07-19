@@ -13,24 +13,24 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-  
+
   useEffect(() => {
     // 로그인 상태 확인 중이면 대기
     if (isAuthenticated === undefined) return;
-    
+
     if (!isAuthenticated) {
       // 로그인 없음 → 로그인 페이지로
       router.push(`/login?redirect=${pathname}`);
       return;
     }
-    
+
     if (requiredRole && user?.role !== requiredRole) {
       // 로그인은 했지만 권한 부족 → 접근 거부 페이지
       router.push('/access-denied');
       return;
     }
   }, [isAuthenticated, user?.role, requiredRole, router, pathname]);
-  
+
   // 로딩 상태
   if (isAuthenticated === undefined) {
     return (
@@ -42,7 +42,7 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
       </div>
     );
   }
-  
+
   // 로그인 필요
   if (!isAuthenticated) {
     return (
@@ -54,7 +54,7 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
       </div>
     );
   }
-  
+
   // 권한 부족
   if (requiredRole && user?.role !== requiredRole) {
     return (
@@ -66,6 +66,6 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
       </div>
     );
   }
-  
+
   return <>{children}</>;
-} 
+}

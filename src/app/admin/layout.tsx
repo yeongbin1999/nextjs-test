@@ -5,9 +5,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <RouteGuard requiredRole="ADMIN">
-      {children}
-    </RouteGuard>
-  );
-} 
+  return <RouteGuard requiredRole="ADMIN">{children}</RouteGuard>;
+}

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuthStore } from '@/features/auth/authStore';
 
 export function LoginForm() {
   const [formData, setFormData] = useState({
@@ -12,9 +13,27 @@ export function LoginForm() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuthStore();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (showSuccessModal && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [showSuccessModal]);
+
+  useEffect(() => {
+    if (showSuccessModal && buttonRef.current) {
+      buttonRef.current.focus();
+    }
+  }, [showSuccessModal]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -27,17 +46,19 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: 실제 로그인 로직 연결
-    setTimeout(() => {
+    setError('');
+    setSuccess('');
+
+    try {
+      await login(formData.email, formData.password);
+      // 로그인 성공 시 모달 표시
+      setShowSuccessModal(true);
       setIsLoading(false);
-      // 로그인 성공 시 redirect 파라미터가 있으면 해당 경로로 이동
-      const redirect = searchParams.get('redirect');
-      if (redirect) {
-        router.push(redirect);
-      } else {
-        router.push('/');
-      }
-    }, 500);
+    } catch (err) {
+      // 로그인 실패 시 에러 메시지 표시하고 로그인 페이지에 머무름
+      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -95,6 +116,13 @@ export function LoginForm() {
             </button>
           </div>
         </div>
+
+        {/* 에러 메시지 */}
+        {error && (
+          <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
         {/* 로그인 버튼 */}
         <button
           type="submit"
@@ -113,6 +141,54 @@ export function LoginForm() {
           </Link>
         </div>
       </form>
+
+      {/* 성공 모달 */}
+      {showSuccessModal && (
+        <div
+          ref={modalRef}
+          tabIndex={-1}
+          autoFocus
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.24)' }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              setShowSuccessModal(false);
+              const redirect = searchParams.get('redirect');
+              if (redirect) {
+                router.push(redirect);
+              } else {
+                router.push('/');
+              }
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🎉</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                로그인 성공!
+              </h3>
+              <p className="text-gray-600 mb-6">로그인이 완료되었습니다.</p>
+              <button
+                ref={buttonRef}
+                autoFocus
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  const redirect = searchParams.get('redirect');
+                  if (redirect) {
+                    router.push(redirect);
+                  } else {
+                    router.push('/');
+                  }
+                }}
+                className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

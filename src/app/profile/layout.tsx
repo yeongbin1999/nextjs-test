@@ -5,9 +5,5 @@ export default function ProfileLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <RouteGuard requiredRole="USER">
-      {children}
-    </RouteGuard>
-  );
-} 
+  return <RouteGuard requiredRole="USER">{children}</RouteGuard>;
+}
