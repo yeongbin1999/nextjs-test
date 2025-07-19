@@ -71,7 +71,6 @@ export const useAuthStore = create<AuthStore>(set => ({
         console.log('✅ 토큰 저장 완료');
       } else {
         console.error('❌ Authorization 헤더를 찾을 수 없습니다');
-        // 토큰이 없어도 getMe로 인증 확인 시도
       }
 
       // 로그인 성공 후 checkAuth로 user 상태 최신화

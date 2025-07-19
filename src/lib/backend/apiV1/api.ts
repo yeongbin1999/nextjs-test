@@ -10,6 +10,30 @@
  * ---------------------------------------------------------------
  */
 
+export interface UpdateCartItemRequest {
+  /**
+   * @format int32
+   * @min 0
+   */
+  quantity: number;
+}
+
+export interface UpdateUserRequest {
+  name?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface UserResponse {
+  /** @format int32 */
+  id?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  role?: "USER" | "ADMIN";
+}
+
 export interface ProductRequestDto {
   /**
    * @minLength 0
@@ -72,6 +96,16 @@ export interface CategoryRequestDto {
   parentId?: number;
 }
 
+export interface AddCartItemRequest {
+  /** @format int32 */
+  productId: number;
+  /**
+   * @format int32
+   * @min 1
+   */
+  quantity?: number;
+}
+
 export interface SignupRequest {
   /** @minLength 1 */
   email: string;
@@ -96,20 +130,70 @@ export interface ChangePasswordRequest {
   newPassword?: string;
 }
 
-export interface UpdateUserRequest {
-  name?: string;
-  phone?: string;
-  address?: string;
+export interface CartDto {
+  /** @format int32 */
+  cartId?: number;
+  /** @format int32 */
+  totalQuantity?: number;
+  /** @format int32 */
+  totalPrice?: number;
+  items?: CartItemDto[];
 }
 
-export interface UserResponse {
+export interface CartItemDto {
   /** @format int32 */
   id?: number;
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  role?: string; // ← 추가!
+  /** @format int32 */
+  productId?: number;
+  productName?: string;
+  /** @format int32 */
+  quantity?: number;
+  /** @format int32 */
+  unitPrice?: number;
+}
+
+export interface Pageable {
+  /**
+   * @format int32
+   * @min 0
+   */
+  page?: number;
+  /**
+   * @format int32
+   * @min 1
+   */
+  size?: number;
+  sort?: string[];
+}
+
+export interface PageResponseDtoUserResponse {
+  content?: UserResponse[];
+  /** @format int32 */
+  pageNumber?: number;
+  /** @format int32 */
+  pageSize?: number;
+  /** @format int64 */
+  totalElements?: number;
+  /** @format int32 */
+  totalPages?: number;
+  isLast?: boolean;
+}
+
+export interface SalesStatisticsResponseDto {
+  /** @format date */
+  date?: string;
+  /** @format int64 */
+  totalSalesAmount?: number;
+}
+
+export interface ProductSalesStatisticsResponseDto {
+  /** @format int32 */
+  productId?: number;
+  productName?: string;
+  /** @format int64 */
+  totalQuantitySold?: number;
+  /** @format int64 */
+  totalSalesAmount?: number;
 }
 
 import type {
@@ -118,13 +202,13 @@ import type {
   AxiosResponse,
   HeadersDefaults,
   ResponseType,
-} from 'axios';
-import axios from 'axios';
+} from "axios";
+import axios from "axios";
 
 export type QueryParamsType = Record<string | number, any>;
 
 export interface FullRequestParams
-  extends Omit<AxiosRequestConfig, 'data' | 'params' | 'url' | 'responseType'> {
+  extends Omit<AxiosRequestConfig, "data" | "params" | "url" | "responseType"> {
   /** set parameter to `true` for call `securityWorker` for this request */
   secure?: boolean;
   /** request path */
@@ -141,30 +225,30 @@ export interface FullRequestParams
 
 export type RequestParams = Omit<
   FullRequestParams,
-  'body' | 'method' | 'query' | 'path'
+  "body" | "method" | "query" | "path"
 >;
 
 export interface ApiConfig<SecurityDataType = unknown>
-  extends Omit<AxiosRequestConfig, 'data' | 'cancelToken'> {
+  extends Omit<AxiosRequestConfig, "data" | "cancelToken"> {
   securityWorker?: (
-    securityData: SecurityDataType | null
+    securityData: SecurityDataType | null,
   ) => Promise<AxiosRequestConfig | void> | AxiosRequestConfig | void;
   secure?: boolean;
   format?: ResponseType;
 }
 
 export enum ContentType {
-  Json = 'application/json',
-  JsonApi = 'application/vnd.api+json',
-  FormData = 'multipart/form-data',
-  UrlEncoded = 'application/x-www-form-urlencoded',
-  Text = 'text/plain',
+  Json = "application/json",
+  JsonApi = "application/vnd.api+json",
+  FormData = "multipart/form-data",
+  UrlEncoded = "application/x-www-form-urlencoded",
+  Text = "text/plain",
 }
 
 export class HttpClient<SecurityDataType = unknown> {
   public instance: AxiosInstance;
   private securityData: SecurityDataType | null = null;
-  private securityWorker?: ApiConfig<SecurityDataType>['securityWorker'];
+  private securityWorker?: ApiConfig<SecurityDataType>["securityWorker"];
   private secure?: boolean;
   private format?: ResponseType;
 
@@ -176,7 +260,7 @@ export class HttpClient<SecurityDataType = unknown> {
   }: ApiConfig<SecurityDataType> = {}) {
     this.instance = axios.create({
       ...axiosConfig,
-      baseURL: axiosConfig.baseURL || 'http://localhost:8080',
+      baseURL: axiosConfig.baseURL || "http://localhost:8080",
     });
     this.secure = secure;
     this.format = format;
@@ -189,7 +273,7 @@ export class HttpClient<SecurityDataType = unknown> {
 
   protected mergeRequestParams(
     params1: AxiosRequestConfig,
-    params2?: AxiosRequestConfig
+    params2?: AxiosRequestConfig,
   ): AxiosRequestConfig {
     const method = params1.method || (params2 && params2.method);
 
@@ -210,7 +294,7 @@ export class HttpClient<SecurityDataType = unknown> {
   }
 
   protected stringifyFormItem(formItem: unknown) {
-    if (typeof formItem === 'object' && formItem !== null) {
+    if (typeof formItem === "object" && formItem !== null) {
       return JSON.stringify(formItem);
     } else {
       return `${formItem}`;
@@ -230,7 +314,7 @@ export class HttpClient<SecurityDataType = unknown> {
         const isFileType = formItem instanceof Blob || formItem instanceof File;
         formData.append(
           key,
-          isFileType ? formItem : this.stringifyFormItem(formItem)
+          isFileType ? formItem : this.stringifyFormItem(formItem),
         );
       }
 
@@ -248,7 +332,7 @@ export class HttpClient<SecurityDataType = unknown> {
     ...params
   }: FullRequestParams): Promise<AxiosResponse<T>> => {
     const secureParams =
-      ((typeof secure === 'boolean' ? secure : this.secure) &&
+      ((typeof secure === "boolean" ? secure : this.secure) &&
         this.securityWorker &&
         (await this.securityWorker(this.securityData))) ||
       {};
@@ -259,7 +343,7 @@ export class HttpClient<SecurityDataType = unknown> {
       type === ContentType.FormData &&
       body &&
       body !== null &&
-      typeof body === 'object'
+      typeof body === "object"
     ) {
       body = this.createFormData(body as Record<string, unknown>);
     }
@@ -268,7 +352,7 @@ export class HttpClient<SecurityDataType = unknown> {
       type === ContentType.Text &&
       body &&
       body !== null &&
-      typeof body !== 'string'
+      typeof body !== "string"
     ) {
       body = JSON.stringify(body);
     }
@@ -277,7 +361,7 @@ export class HttpClient<SecurityDataType = unknown> {
       ...requestParams,
       headers: {
         ...(requestParams.headers || {}),
-        ...(type ? { 'Content-Type': type } : {}),
+        ...(type ? { "Content-Type": type } : {}),
       },
       params: query,
       responseType: responseFormat,
@@ -301,6 +385,80 @@ export class Api<
     /**
      * No description
      *
+     * @tags cart-controller
+     * @name UpdateItemQuantity
+     * @summary 장바구니 항목 수량 수정
+     * @request PUT:/api/v1/carts/items/{cartItemId}
+     */
+    updateItemQuantity: (
+      cartItemId: number,
+      data: UpdateCartItemRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/carts/items/${cartItemId}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags cart-controller
+     * @name DeleteItem
+     * @summary 장바구니 항목 삭제
+     * @request DELETE:/api/v1/carts/items/{cartItemId}
+     */
+    deleteItem: (cartItemId: number, params: RequestParams = {}) =>
+      this.request<void, any>({
+        path: `/api/v1/carts/items/${cartItemId}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description 특정 사용자 ID를 통해 상세 정보를 조회합니다.
+     *
+     * @tags admin-controller
+     * @name GetUserById
+     * @summary 관리자 - 특정 사용자 정보 조회
+     * @request GET:/api/v1/admin/users/{userId}
+     */
+    getUserById: (userId: number, params: RequestParams = {}) =>
+      this.request<UserResponse, any>({
+        path: `/api/v1/admin/users/${userId}`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description 특정 사용자 ID의 정보를 수정합니다. 이름, 주소, 전화번호를 수정할 수 있습니다.
+     *
+     * @tags admin-controller
+     * @name UpdateUser
+     * @summary 관리자 - 특정 사용자 정보 수정
+     * @request PUT:/api/v1/admin/users/{userId}
+     */
+    updateUser: (
+      userId: number,
+      data: UpdateUserRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<UserResponse, any>({
+        path: `/api/v1/admin/users/${userId}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
      * @tags product-controller
      * @name UpdateProduct
      * @request PUT:/api/v1/admin/products/{id}
@@ -308,14 +466,14 @@ export class Api<
     updateProduct: (
       id: number,
       data: ProductRequestDto,
-      params: RequestParams = {}
+      params: RequestParams = {},
     ) =>
       this.request<ProductResponseDto, any>({
         path: `/api/v1/admin/products/${id}`,
-        method: 'PUT',
+        method: "PUT",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -329,7 +487,7 @@ export class Api<
     deleteProduct: (id: number, params: RequestParams = {}) =>
       this.request<void, any>({
         path: `/api/v1/admin/products/${id}`,
-        method: 'DELETE',
+        method: "DELETE",
         ...params,
       }),
 
@@ -343,14 +501,14 @@ export class Api<
     updateCategory: (
       id: number,
       data: CategoryRequestDto,
-      params: RequestParams = {}
+      params: RequestParams = {},
     ) =>
       this.request<CategoryResponseDto, any>({
         path: `/api/v1/admin/categories/${id}`,
-        method: 'PUT',
+        method: "PUT",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -364,7 +522,35 @@ export class Api<
     deleteCategory: (id: number, params: RequestParams = {}) =>
       this.request<void, any>({
         path: `/api/v1/admin/categories/${id}`,
-        method: 'DELETE',
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags cart-controller
+     * @name AddItem
+     * @summary 장바구니에 상품 추가
+     * @request POST:/api/v1/carts/items
+     */
+    addItem: (
+      query: {
+        /**
+         * @format int32
+         * @exclusiveMin 0
+         */
+        userId: number;
+      },
+      data: AddCartItemRequest,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/carts/items`,
+        method: "POST",
+        query: query,
+        body: data,
+        type: ContentType.Json,
         ...params,
       }),
 
@@ -378,10 +564,10 @@ export class Api<
     signup: (data: SignupRequest, params: RequestParams = {}) =>
       this.request<string, any>({
         path: `/api/v1/auth/signup`,
-        method: 'POST',
+        method: "POST",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -395,7 +581,7 @@ export class Api<
     reissue: (params: RequestParams = {}) =>
       this.request<void, any>({
         path: `/api/v1/auth/reissue`,
-        method: 'POST',
+        method: "POST",
         ...params,
       }),
 
@@ -409,7 +595,7 @@ export class Api<
     logout: (params: RequestParams = {}) =>
       this.request<void, any>({
         path: `/api/v1/auth/logout`,
-        method: 'POST',
+        method: "POST",
         ...params,
       }),
 
@@ -423,7 +609,7 @@ export class Api<
     login: (data: LoginRequest, params: RequestParams = {}) =>
       this.request<void, any>({
         path: `/api/v1/auth/login`,
-        method: 'POST',
+        method: "POST",
         body: data,
         type: ContentType.Json,
         ...params,
@@ -439,10 +625,10 @@ export class Api<
     changePassword: (data: ChangePasswordRequest, params: RequestParams = {}) =>
       this.request<string, any>({
         path: `/api/v1/auth/change-password`,
-        method: 'POST',
+        method: "POST",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -456,10 +642,10 @@ export class Api<
     createProduct: (data: ProductRequestDto, params: RequestParams = {}) =>
       this.request<ProductResponseDto, any>({
         path: `/api/v1/admin/products`,
-        method: 'POST',
+        method: "POST",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -473,10 +659,10 @@ export class Api<
     createCategory: (data: CategoryRequestDto, params: RequestParams = {}) =>
       this.request<CategoryResponseDto, any>({
         path: `/api/v1/admin/categories`,
-        method: 'POST',
+        method: "POST",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -490,8 +676,8 @@ export class Api<
     getMe: (params: RequestParams = {}) =>
       this.request<UserResponse, any>({
         path: `/api/v1/users/me`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
         ...params,
       }),
 
@@ -505,10 +691,10 @@ export class Api<
     updateMe: (data: UpdateUserRequest, params: RequestParams = {}) =>
       this.request<UserResponse, any>({
         path: `/api/v1/users/me`,
-        method: 'PATCH',
+        method: "PATCH",
         body: data,
         type: ContentType.Json,
-        format: 'json',
+        format: "json",
         ...params,
       }),
 
@@ -522,8 +708,8 @@ export class Api<
     getAllProducts: (params: RequestParams = {}) =>
       this.request<ProductResponseDto[], any>({
         path: `/api/v1/products`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
         ...params,
       }),
 
@@ -537,8 +723,8 @@ export class Api<
     getProductById: (id: number, params: RequestParams = {}) =>
       this.request<ProductResponseDto, any>({
         path: `/api/v1/products/${id}`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
         ...params,
       }),
 
@@ -552,8 +738,8 @@ export class Api<
     getAllCategories: (params: RequestParams = {}) =>
       this.request<CategoryResponseDto[], any>({
         path: `/api/v1/categories`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
         ...params,
       }),
 
@@ -567,8 +753,8 @@ export class Api<
     getCategoryById: (id: number, params: RequestParams = {}) =>
       this.request<CategoryResponseDto, any>({
         path: `/api/v1/categories/${id}`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
         ...params,
       }),
 
@@ -582,8 +768,123 @@ export class Api<
     getRootCategories: (params: RequestParams = {}) =>
       this.request<CategoryResponseDto[], any>({
         path: `/api/v1/categories/roots`,
-        method: 'GET',
-        format: 'json',
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags cart-controller
+     * @name GetCart
+     * @summary 장바구니 조회
+     * @request GET:/api/v1/carts
+     */
+    getCart: (
+      query: {
+        /**
+         * @format int32
+         * @exclusiveMin 0
+         */
+        userId: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<CartDto, any>({
+        path: `/api/v1/carts`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags cart-controller
+     * @name ClearCart
+     * @summary 장바구니 비우기
+     * @request DELETE:/api/v1/carts
+     */
+    clearCart: (
+      query: {
+        /**
+         * @format int32
+         * @exclusiveMin 0
+         */
+        userId: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/carts`,
+        method: "DELETE",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * @description 모든 사용자 목록을 조회합니다. 검색어(search)를 통해 이메일 또는 이름으로 필터링할 수 있습니다.
+     *
+     * @tags admin-controller
+     * @name GetAllUsers
+     * @summary 관리자 - 사용자 목록 조회 (페이지네이션, 검색 가능)
+     * @request GET:/api/v1/admin/users
+     */
+    getAllUsers: (
+      query: {
+        pageable: Pageable;
+        search?: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<PageResponseDtoUserResponse, any>({
+        path: `/api/v1/admin/users`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description 지정된 기간 동안의 일별 또는 월별 총 판매액 통계를 조회합니다. (주의: 대량 데이터 시 비효율적)
+     *
+     * @tags admin-controller
+     * @name GetSalesStatistics
+     * @summary 관리자 - 일별/월별 판매액 통계
+     * @request GET:/api/v1/admin/statistics/sales
+     */
+    getSalesStatistics: (
+      query: {
+        /** @format date */
+        startDate: string;
+        /** @format date */
+        endDate: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<SalesStatisticsResponseDto[], any>({
+        path: `/api/v1/admin/statistics/sales`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description 상품별 총 판매량 및 총 판매액 통계를 조회합니다. (주의: N+1 쿼리 발생 가능)
+     *
+     * @tags admin-controller
+     * @name GetProductSalesStatistics
+     * @summary 관리자 - 상품별 판매량 통계
+     * @request GET:/api/v1/admin/statistics/products
+     */
+    getProductSalesStatistics: (params: RequestParams = {}) =>
+      this.request<ProductSalesStatisticsResponseDto[], any>({
+        path: `/api/v1/admin/statistics/products`,
+        method: "GET",
+        format: "json",
         ...params,
       }),
   };

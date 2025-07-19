@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingCart, Home as HomeIcon, Store } from 'lucide-react';
+import { ShoppingCart, Home as HomeIcon, Store, Receipt } from 'lucide-react';
 import { useCartStore } from '@/features/cart/cartStore';
 import { ProfileDropdown } from './ProfileDropdown';
 
@@ -43,6 +43,13 @@ export function Header() {
               aria-label="Shop"
             >
               <Store className="w-5 h-5" />
+            </Link>
+            <Link
+              href="/orders"
+              className="p-2 text-gray-600 hover:text-gray-900 transition-colors rounded-full"
+              aria-label="Orders"
+            >
+              <Receipt className="w-5 h-5" />
             </Link>
             <Link
               href="/cart"
