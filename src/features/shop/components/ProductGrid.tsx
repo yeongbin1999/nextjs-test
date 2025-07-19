@@ -61,7 +61,11 @@ export function ProductGrid() {
               <div
                 className="relative h-[220px] bg-cover bg-center rounded-t-xl"
                 style={{
-                  backgroundImage: `url(${product.image_url || '/placeholder.png'})`,
+                  backgroundImage: `url(${
+                    !product.image_url || product.image_url.startsWith('http')
+                      ? '/coffee.jpeg'
+                      : product.image_url
+                  })`,
                 }}
               >
                 {isNew && (

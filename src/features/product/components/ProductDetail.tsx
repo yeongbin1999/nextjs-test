@@ -82,12 +82,6 @@ export function ProductDetail({ id }: ProductDetailProps) {
   }
 
   // 임의의 속성/별점 데이터 (실제 데이터에 맞게 수정 가능)
-  const attributes = [
-    { label: 'Body', value: 4 },
-    { label: 'Acidity', value: 5 },
-    { label: 'Flavor', value: 5 },
-    { label: 'Sweet', value: 3 },
-  ];
 
   const isNew = product.name.includes('NEW'); // 상품명에 'NEW'가 포함되어 있는지 확인
 
@@ -110,11 +104,11 @@ export function ProductDetail({ id }: ProductDetailProps) {
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 flex items-center justify-center">
-        <div className="max-w-[1100px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-center bg-white rounded-2xl">
+        <div className="max-w-[1100px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-stretch bg-white rounded-2xl px-4 md:px-12">
           {/* 상품 이미지 */}
-          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-center min-h-[380px] h-[500px] relative">
+          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-start min-h-[500px] h-[500px] relative mt-4 md:pl-16">
             <Image
-              src={product.image_url || '/placeholder.png'}
+              src={(!product.image_url || product.image_url.startsWith('http')) ? '/coffee.jpeg' : product.image_url}
               alt={product.name}
               width={400}
               height={600}
@@ -124,54 +118,39 @@ export function ProductDetail({ id }: ProductDetailProps) {
           </div>
 
           {/* 상품 정보 */}
-          <div className="flex flex-col justify-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 flex items-center gap-1">
-              {isNew && (
-                <Badge
-                  className="
-                    bg-green-100 text-green-700
-                    border border-green-300
-                    rounded-full
-                    px-2 py-0.5
-                    text-sm font-bold
-                    shadow
-                    uppercase
-                    tracking-wider
-                    align-middle
-                    inline-flex
-                  "
-                >
-                  NEW
-                </Badge>
-              )}
-              <span className="align-middle">{product.name}</span>
-            </h1>
-            <div className="text-gray-600 text-xl md:text-2xl mb-4">
-              ₩ {Number(product.price).toLocaleString()}
-            </div>
-            {/* 설명 */}
-            <p className="text-gray-700 text-base md:text-lg mb-8 leading-relaxed">
-              {product.description}
-            </p>
-            {/* 속성 */}
-            <div className="space-y-3 mb-10">
-              {attributes.map(attr => (
-                <div key={attr.label} className="flex items-center">
-                  <span className="w-20 text-gray-400 capitalize text-base md:text-lg">
-                    {attr.label}
-                  </span>
-                  <div className="flex">
-                    {Array.from({ length: attr.value }).map((_, i) => (
-                      <span key={i} className="mr-1 text-xl md:text-2xl">
-                        ☕️
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+          <div className="flex flex-col justify-between h-[500px] min-h-[500px] self-stretch mt-4 md:pr-16">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4 flex items-center gap-1 mt-12">
+                {isNew && (
+                  <Badge
+                    className="
+                      bg-green-100 text-green-700
+                      border border-green-300
+                      rounded-full
+                      px-2 py-0.5
+                      text-sm font-bold
+                      shadow
+                      uppercase
+                      tracking-wider
+                      align-middle
+                      inline-flex
+                    "
+                  >
+                    NEW
+                  </Badge>
+                )}
+                <span className="align-middle">{product.name}</span>
+              </h1>
+              <div className="text-gray-600 text-xl md:text-2xl mb-4">
+                ₩ {Number(product.price).toLocaleString()}
+              </div>
+              {/* 설명 */}
+              <p className="text-gray-700 text-base md:text-lg mb-8 leading-relaxed">
+                {product.description}
+              </p>
             </div>
             {/* 수량/장바구니 */}
-            <div className="flex items-center space-x-5">
+            <div className="flex items-center space-x-5 mt-4 mb-8">
               <div className="flex items-center border rounded-lg px-4 py-2 text-lg md:text-xl w-40 justify-between">
                 <button className="px-2 py-1" onClick={handleDecrease}>
                   -

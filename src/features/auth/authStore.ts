@@ -5,6 +5,8 @@ import type {
   SignupRequest,
   UserResponse,
 } from '@/lib/backend/apiV1/api';
+import { useCartStore } from '@/features/cart/cartStore';
+import { fetchCart, clearCart as clearServerCart, addToCart } from '@/features/cart/api';
 
 // 브라우저 환경에서만 localStorage 사용
 const isBrowser = typeof window !== 'undefined';
@@ -73,9 +75,49 @@ export const useAuthStore = create<AuthStore>(set => ({
         console.error('❌ Authorization 헤더를 찾을 수 없습니다');
       }
 
-      // 로그인 성공 후 checkAuth로 user 상태 최신화
+      // 로그인 성공 후 장바구니 동기화
       if (isBrowser) {
+        // 1. 인증 상태 최신화(토큰 저장 후 user 정보 fetch)
         await useAuthStore.getState().checkAuth();
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) return; // userId 없으면 동기화 중단
+        // 2. 서버 장바구니 fetch
+        let serverCart: any[] = [];
+        try {
+          serverCart = await fetchCart();
+        } catch (e) {
+          serverCart = [];
+        }
+        // 3. 로컬 장바구니 아이템 가져오기
+        const localCartItems = useCartStore.getState().items;
+        // 4. 상품ID 기준으로 합치기(수량 합산)
+        const mergedMap = new Map();
+        for (const item of [...serverCart, ...localCartItems]) {
+          if (mergedMap.has(item.id)) {
+            mergedMap.set(item.id, {
+              ...item,
+              quantity: mergedMap.get(item.id).quantity + item.quantity,
+            });
+          } else {
+            mergedMap.set(item.id, { ...item });
+          }
+        }
+        const mergedCart = Array.from(mergedMap.values());
+        // 5. 서버 장바구니 비우기
+        await clearServerCart();
+        // 6. 합쳐진 장바구니를 서버에 모두 추가
+        for (const item of mergedCart) {
+          try {
+            await addToCart({ productId: item.id, quantity: item.quantity });
+          } catch (e) {
+            // 중복 등 에러 무시하고 계속 진행
+            console.warn('장바구니 동기화 실패:', e);
+          }
+        }
+        // 7. zustand 상태도 합쳐진 값으로 set
+        useCartStore.setState({ items: mergedCart });
+        // 8. localStorage(cart-storage)도 서버 상태로 덮어쓰기
+        localStorage.setItem('cart-storage', JSON.stringify({ state: { items: mergedCart } }));
       }
       set({ isLoading: false });
     } catch (error: any) {
@@ -126,8 +168,12 @@ export const useAuthStore = create<AuthStore>(set => ({
     } finally {
       // 로컬 상태 초기화
       if (isBrowser) {
+        // 서버 items를 localStorage(cart-storage)에 저장
+        const items = useCartStore.getState().items;
+        localStorage.setItem('cart-storage', JSON.stringify({ state: { items } }));
         localStorage.removeItem('accessToken');
       }
+      useCartStore.setState({ items: [] });
       set({ user: null, isAuthenticated: false });
     }
   },

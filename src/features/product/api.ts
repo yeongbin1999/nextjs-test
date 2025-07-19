@@ -1,40 +1,36 @@
 import { Product } from './types';
+import { ProductResponseDto } from '@/lib/backend/apiV1/api';
 
 // API 응답 데이터 타입 정의
-interface ProductApiResponse {
-  id: number;
-  name: string;
+export type ProductApiLike = {
+  id?: number;
+  name?: string;
   description?: string;
-  price: string | number;
+  price?: string | number;
   image_url?: string;
+  imageUrl?: string;
   stock?: number;
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
+  updatedAt?: string;
   category_id?: number;
-}
+  categoryId?: number;
+};
 
-function mapToProduct(item: ProductApiResponse): Product {
+export function mapToProduct(item: ProductApiLike): Product {
   return {
-    id: item.id,
-    name: item.name,
+    id: item.id ?? 0,
+    name: item.name ?? '',
     description: item.description ?? '',
-
-    // 문자열 가격 → 숫자 변환
     price:
       typeof item.price === 'string'
         ? parseInt(item.price.replace(/[^0-9]/g, ''))
         : (item.price ?? 0),
-
-    // ✅ dummyData의 image_url 그대로 사용
-    image_url: item.image_url || '/placeholder.png',
-
-    // ✅ dummyData에 있으면 그대로 사용, 없으면 기본값
+    image_url: item.image_url || item.imageUrl || '/placeholder.png',
     stock: item.stock ?? 10,
-    created_at: item.created_at || new Date().toISOString(),
-    updated_at: item.updated_at || new Date().toISOString(),
-    category_id: item.category_id ?? 1,
+    created_at: item.created_at || item.createdAt || new Date().toISOString(),
+    updated_at: item.updated_at || item.updatedAt || new Date().toISOString(),
+    category_id: item.category_id ?? item.categoryId ?? 1,
   };
 }
-
-// 함수를 export하여 사용할 수 있도록 함
-export { mapToProduct };

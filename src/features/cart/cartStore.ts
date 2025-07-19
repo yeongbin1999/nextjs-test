@@ -1,99 +1,221 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem } from './types';
+import {
+  fetchCart,
+  addToCart,
+  updateCartItem as apiUpdateCartItem,
+  removeFromCart as apiRemoveFromCart,
+  clearCart as apiClearCart,
+} from './api';
+import { useEffect } from 'react';
+import { useAuthStore } from '../auth/authStore';
 
 interface CartStore {
   items: CartItem[];
   isLoading: boolean;
   error: string | null;
 
-  // 임시 로컬 버전 (나중에 API로 교체)
+  fetch: () => Promise<void>;
   addItem: (
     productId: number,
     quantity: number,
     productInfo: Omit<CartItem, 'id' | 'quantity'>
-  ) => void;
+  ) => Promise<void>;
   updateQuantity: (itemId: number, quantity: number) => void;
-  removeItem: (itemId: number) => void;
-  clearCart: () => void;
+  removeItem: (itemId: number) => Promise<void>;
+  clearCart: () => Promise<void>;
 
-  // 계산 함수들
   getTotalCount: () => number;
   getTotalPrice: () => number;
 }
 
+// flushCartSync를 export
+export let flushCartSync: (() => Promise<void>) | null = null;
+
 export const useCartStore = create<CartStore>()(
   persist(
-    (set, get) => ({
-      items: [],
-      isLoading: false,
-      error: null,
+    (set, get) => {
+      let syncTimeout: NodeJS.Timeout | null = null;
+      let lastSyncItems: CartItem[] = [];
+      let pendingSync: (() => Promise<void>) | null = null;
 
-      // 임시 로컬 버전 - 나중에 API로 교체
-      addItem: (
-        productId: number,
-        quantity: number,
-        productInfo: Omit<CartItem, 'id' | 'quantity'>
-      ) => {
-        set(state => {
-          const existingItem = state.items.find(i => i.id === productId);
-          if (existingItem) {
-            return {
-              ...state,
-              items: state.items.map(i =>
-                i.id === productId
-                  ? { ...i, quantity: i.quantity + quantity }
-                  : i
-              ),
-            };
+      // flushCartSync: debounce된 서버 동기화를 즉시 실행
+      flushCartSync = async () => {
+        if (pendingSync) {
+          await pendingSync();
+          pendingSync = null;
+        }
+      };
+
+      // beforeunload에서 flushCartSync 실행
+      if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', flushCartSync);
+      }
+
+      return {
+        items: [],
+        isLoading: false,
+        error: null,
+
+        fetch: async () => {
+          set({ isLoading: true, error: null });
+          try {
+            const items = await fetchCart();
+            set({ items, isLoading: false });
+            lastSyncItems = items;
+          } catch (e: any) {
+            const msg = e.message && e.message.includes('로그인이 필요합니다')
+              ? '오류가 발생했습니다. 다시 시도해 주세요.'
+              : e.message || '장바구니 조회 실패';
+            set({ error: msg, isLoading: false });
           }
-          return {
-            ...state,
-            items: [
-              ...state.items,
-              {
-                id: productId,
-                quantity,
-                ...productInfo,
-              },
-            ],
+        },
+
+        addItem: async (
+          productId: number,
+          quantity: number,
+          productInfo: Omit<CartItem, 'id' | 'quantity'>
+        ) => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            // 비로그인: 로컬 상태만 변경
+            set(state => {
+              const existingItem = state.items.find(i => i.id === productId);
+              if (existingItem) {
+                return {
+                  ...state,
+                  items: state.items.map(i =>
+                    i.id === productId
+                      ? { ...i, quantity: i.quantity + quantity }
+                      : i
+                  ),
+                };
+              }
+              return {
+                ...state,
+                items: [
+                  ...state.items,
+                  {
+                    id: productId,
+                    quantity,
+                    ...productInfo,
+                  },
+                ],
+              };
+            });
+            return;
+          }
+          set({ isLoading: true, error: null });
+          try {
+            const items = await addToCart({
+              productId,
+              quantity,
+              ...productInfo,
+            } as any);
+            set({ items, isLoading: false });
+            lastSyncItems = items;
+          } catch (e: any) {
+            const msg = e.message && e.message.includes('로그인이 필요합니다')
+              ? '오류가 발생했습니다. 다시 시도해 주세요.'
+              : e.message || '장바구니 추가 실패';
+            set({ error: msg, isLoading: false });
+          }
+        },
+
+        updateQuantity: (itemId: number, quantity: number) => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            // 비로그인: 로컬 상태만 변경
+            set(state => ({
+              items: state.items.map(i =>
+                i.id === itemId ? { ...i, quantity } : i
+              ),
+            }));
+            return;
+          }
+          // debounce 서버 동기화
+          if (syncTimeout) clearTimeout(syncTimeout);
+          pendingSync = async () => {
+            try {
+              const item = get().items.find(i => i.id === itemId);
+              if (item && item.quantity !== (lastSyncItems.find(i => i.id === itemId)?.quantity ?? 0)) {
+                const items = await apiUpdateCartItem({ itemId, quantity: item.quantity });
+                set({ items });
+                lastSyncItems = items;
+              }
+            } catch (e: any) {
+              const msg = e.message && e.message.includes('로그인이 필요합니다')
+                ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                : e.message || '수량 변경 실패';
+              set({ error: msg });
+            }
           };
-        });
-      },
+          syncTimeout = setTimeout(async () => {
+            if (pendingSync) {
+              await pendingSync();
+              pendingSync = null;
+            }
+          }, 500);
+        },
 
-      updateQuantity: (itemId: number, quantity: number) => {
-        set(state => ({
-          items: state.items.map(i =>
-            i.id === itemId ? { ...i, quantity } : i
-          ),
-        }));
-      },
+        removeItem: async (itemId: number) => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            // 비로그인: 로컬 상태만 변경
+            set(state => ({
+              items: state.items.filter(i => i.id !== itemId),
+            }));
+            return;
+          }
+          set({ isLoading: true, error: null });
+          try {
+            const items = await apiRemoveFromCart(itemId);
+            set({ items, isLoading: false });
+            lastSyncItems = items;
+          } catch (e: any) {
+            const msg = e.message && e.message.includes('로그인이 필요합니다')
+              ? '오류가 발생했습니다. 다시 시도해 주세요.'
+              : e.message || '삭제 실패';
+            set({ error: msg, isLoading: false });
+          }
+        },
 
-      removeItem: (itemId: number) => {
-        set(state => ({
-          items: state.items.filter(i => i.id !== itemId),
-        }));
-      },
+        clearCart: async () => {
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) {
+            // 비로그인: 로컬 상태만 변경
+            set({ items: [] });
+            return;
+          }
+          set({ isLoading: true, error: null });
+          try {
+            await apiClearCart();
+            set({ items: [], isLoading: false });
+            lastSyncItems = [];
+          } catch (e: any) {
+            const msg = e.message && e.message.includes('로그인이 필요합니다')
+              ? '오류가 발생했습니다. 다시 시도해 주세요.'
+              : e.message || '장바구니 비우기 실패';
+            set({ error: msg, isLoading: false });
+          }
+        },
 
-      clearCart: () => {
-        set({ items: [] });
-      },
+        getTotalCount: () => {
+          return get().items.reduce((sum, item) => sum + item.quantity, 0);
+        },
 
-      getTotalCount: () => {
-        return get().items.reduce((sum, item) => sum + item.quantity, 0);
-      },
-
-      getTotalPrice: () => {
-        return get().items.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        );
-      },
-    }),
+        getTotalPrice: () => {
+          return get().items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          );
+        },
+      };
+    },
     {
-      name: 'cart-storage', // localStorage 키 이름
-      partialize: state => ({ items: state.items }), // items만 저장
-      skipHydration: true, // Hydration Error 방지
+      name: 'cart-storage',
+      partialize: state => ({ items: state.items }),
     }
   )
 );

@@ -4,23 +4,34 @@ import { useCartStore } from '@/features/cart/cartStore';
 import Image from 'next/image';
 import { useState } from 'react';
 import React from 'react';
+import { useRouter } from 'next/router';
+import { usePathname } from 'next/navigation';
+import { flushCartSync } from '@/features/cart/cartStore';
+
+function CartSyncOnRouteChange() {
+  const pathname = usePathname();
+  const prevPath = React.useRef(pathname);
+  React.useEffect(() => {
+    if (prevPath.current !== pathname) {
+      if (flushCartSync) flushCartSync();
+      prevPath.current = pathname;
+    }
+  }, [pathname]);
+  return null;
+}
 
 export function CartPage() {
-  const { items, updateQuantity, removeItem, getTotalPrice } = useCartStore();
+  const { items, updateQuantity, removeItem, getTotalPrice, fetch } = useCartStore();
   const subtotal = getTotalPrice();
-  const [quantities, setQuantities] = useState(() =>
-    Object.fromEntries(items.map(item => [item.id, item.quantity]))
-  );
 
-  // items가 바뀔 때마다 quantities 동기화
+  // 페이지 마운트 시 서버 장바구니 fetch
   React.useEffect(() => {
-    setQuantities(
-      Object.fromEntries(items.map(item => [item.id, item.quantity]))
-    );
-  }, [items]);
+    fetch();
+  }, [fetch]);
 
   return (
     <div className="flex flex-col md:flex-row gap-8 p-8 min-h-[60vh]">
+      <CartSyncOnRouteChange />
       {/* Cart Table */}
       <div className="flex-1">
         <h1 className="text-3xl font-bold ml-8 mb-8">Cart</h1>
@@ -56,7 +67,7 @@ export function CartPage() {
                   <tr key={item.id} className="border-b last:border-b-0">
                     <td className="py-4 px-4 flex items-center gap-4">
                       <Image
-                        src={item.image_url}
+                        src={(!item.image_url || item.image_url.startsWith('http')) ? '/coffee.jpeg' : item.image_url}
                         alt={item.name}
                         width={80}
                         height={80}
@@ -70,29 +81,38 @@ export function CartPage() {
                       ₩ {Number(item.price).toLocaleString()}
                     </td>
                     <td className="py-4 px-6 text-center w-28 min-w-[6rem]">
-                      <input
-                        type="number"
-                        min={1}
-                        value={quantities[item.id] ?? item.quantity}
-                        onChange={e => {
-                          const value = e.target.value;
-                          setQuantities(q => ({ ...q, [item.id]: value }));
-                        }}
-                        onBlur={e => {
-                          let value = Number(e.target.value);
-                          if (isNaN(value) || value < 1) value = 1;
-                          updateQuantity(item.id, value);
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            let value = Number(e.currentTarget.value);
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
+                          onClick={async () => {
+                            await updateQuantity(item.id, Math.max(1, item.quantity - 1));
+                          }}
+                          aria-label="Decrease"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={e => {
+                            let value = Number(e.target.value);
                             if (isNaN(value) || value < 1) value = 1;
                             updateQuantity(item.id, value);
-                            e.currentTarget.blur();
-                          }
-                        }}
-                        className="min-w-[3rem] w-16 border rounded text-center py-1 font-mono"
-                      />
+                          }}
+                          className="min-w-[3rem] w-16 border rounded text-center py-2 font-mono appearance-auto"
+                          style={{ appearance: 'auto', WebkitAppearance: 'auto' as any, MozAppearance: 'auto' as any }}
+                        />
+                        <button
+                          className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
+                          onClick={async () => {
+                            await updateQuantity(item.id, item.quantity + 1);
+                          }}
+                          aria-label="Increase"
+                        >
+                          +
+                        </button>
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-right w-36 min-w-[8rem] text-gray-700 text-lg">
                       ₩ {(item.price * item.quantity).toLocaleString()}

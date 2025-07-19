@@ -5,9 +5,12 @@ import Image from 'next/image';
 import { ShoppingCart, Home as HomeIcon, Store, Receipt } from 'lucide-react';
 import { useCartStore } from '@/features/cart/cartStore';
 import { ProfileDropdown } from './ProfileDropdown';
+import React, { useEffect, useState } from 'react';
 
 export function Header() {
   const { getTotalCount } = useCartStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const totalCount = getTotalCount();
 
   return (
@@ -62,7 +65,7 @@ export function Header() {
                   totalCount > 0 ? 'bg-red-500' : 'bg-gray-400'
                 }`}
               >
-                {totalCount > 99 ? '99+' : totalCount}
+                {mounted ? (totalCount > 99 ? '99+' : totalCount) : null}
               </span>
             </Link>
             {/* 프로필 드롭다운 */}

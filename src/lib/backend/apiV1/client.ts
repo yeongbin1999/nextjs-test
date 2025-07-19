@@ -33,6 +33,12 @@ apiClient.instance.interceptors.request.use(
       headers: config.headers,
     });
 
+    // 회원가입, 로그인 등은 토큰을 붙이지 않음
+    const noAuthPaths = ['/api/v1/auth/signup', '/api/v1/auth/login'];
+    if (typeof config.url === 'string' && noAuthPaths.some(path => config.url.includes(path))) {
+      return config;
+    }
+
     if (isBrowser) {
       const token = localStorage.getItem('accessToken');
 

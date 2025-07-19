@@ -1,13 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { productData } from '@/features/product/dummyData';
 import { mapToProduct } from '@/features/product/api';
 import { Product } from '@/features/product/types';
+import { apiClient } from '@/lib/backend/apiV1/client';
 
-// 가짜 API 함수 (실제 API 연결 시 이 부분만 교체)
+// 실제 API 함수
 async function fetchProducts(): Promise<Product[]> {
-  // 실제 API 호출을 시뮬레이션 (0.5초 딜레이)
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return productData.map(mapToProduct);
+  const res = await apiClient.api.getAllProducts();
+  return (res.data || []).map(item => mapToProduct(item as any));
 }
 
 // 상품 목록 조회 (react-query)
@@ -24,14 +23,9 @@ export function useProduct(id: string) {
   return useQuery({
     queryKey: ['product', id],
     queryFn: async (): Promise<Product> => {
-      // 실제 API 호출을 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 300));
       const productId = Number(id);
-      const raw = productData.find(p => p.id === productId);
-      if (!raw) {
-        throw new Error('Product not found');
-      }
-      return mapToProduct(raw);
+      const res = await apiClient.api.getProductById(productId);
+      return mapToProduct(res.data as any);
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 10, // 10분
