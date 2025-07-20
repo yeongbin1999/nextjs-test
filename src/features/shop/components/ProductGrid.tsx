@@ -10,19 +10,13 @@ export function ProductGrid() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div
-            key={i}
-            className="w-full max-w-[285px] h-[400px] bg-white rounded-lg animate-pulse"
-          >
-            <div className="h-[280px] bg-gray-200 rounded-t-lg"></div>
-            <div className="p-4 space-y-3">
-              <div className="h-4 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            </div>
+      <div className="flex items-center justify-center min-h-[60vh] pt-20">
+        <div className="text-center">
+          <div className="inline-flex items-center space-x-3 text-gray-600">
+            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xl font-medium">상품을 불러오는 중...</span>
           </div>
-        ))}
+        </div>
       </div>
     );
   }

@@ -174,21 +174,11 @@ export function ProductDetail({ id }: ProductDetailProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white flex flex-1 flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="max-w-[1100px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-center bg-white rounded-2xl">
-            <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-center min-h-[380px] animate-pulse">
-              <div className="w-[400px] h-[600px] bg-gray-200 rounded-lg"></div>
-            </div>
-            <div className="space-y-4">
-              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                <div className="h-4 bg-gray-200 rounded w-4/6"></div>
-              </div>
-            </div>
+      <div className="flex items-center justify-center min-h-[60vh] pt-20">
+        <div className="text-center">
+          <div className="inline-flex items-center space-x-3 text-gray-600">
+            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xl font-medium">상품 정보를 불러오는 중...</span>
           </div>
         </div>
       </div>
