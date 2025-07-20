@@ -48,14 +48,21 @@ export function ProductGrid() {
         const isNew =
           Date.now() - new Date(product.created_at).getTime() <
           7 * 24 * 60 * 60 * 1000;
+        
+        const isOutOfStock = product.stock <= 0;
+        const isLowStock = product.stock <= 5 && product.stock > 0;
 
         return (
           <Link
             key={product.id}
             href={`/product/${product.id}`}
-            className="block group"
+            className={`block group ${isOutOfStock ? 'pointer-events-none' : ''}`}
           >
-            <Card className="w-full max-w-[285px] h-[400px] overflow-hidden relative hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer">
+            <Card className={`w-full max-w-[285px] h-[400px] overflow-hidden relative transition-all duration-200 cursor-pointer ${
+              isOutOfStock 
+                ? 'opacity-60 grayscale' 
+                : 'hover:shadow-lg hover:scale-[1.02]'
+            }`}>
               {/* 상단 이미지 */}
               <div
                 className="relative h-[220px] bg-cover bg-center rounded-t-xl"
@@ -67,7 +74,8 @@ export function ProductGrid() {
                   })`,
                 }}
               >
-                {isNew ? (
+                {/* NEW 배지 */}
+                {isNew && !isOutOfStock && (
                   <Badge
                     className="
                       absolute top-0 right-5
@@ -84,16 +92,69 @@ export function ProductGrid() {
                   >
                     NEW
                   </Badge>
+                )}
+                
+                {/* 재고 상태 배지 */}
+                {isOutOfStock ? (
+                  <Badge
+                    className="
+                      absolute top-0 left-5
+                      bg-red-100 text-red-700
+                      border border-red-300
+                      rounded-full
+                      px-3 py-1
+                      text-xs font-bold
+                      shadow-md
+                      z-10
+                    "
+                  >
+                    품절
+                  </Badge>
+                ) : isLowStock ? (
+                  <Badge
+                    className="
+                      absolute top-0 left-5
+                      bg-orange-100 text-orange-700
+                      border border-orange-300
+                      rounded-full
+                      px-3 py-1
+                      text-xs font-bold
+                      shadow-md
+                      z-10
+                    "
+                  >
+                    재고부족
+                  </Badge>
                 ) : null}
               </div>
+              
               {/* 하단 정보 */}
               <CardContent className="min-h-[120px] p-4 pr-6 pb-0 flex flex-col justify-between">
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-gray-800 text-2xl leading-[28.8px] line-clamp-2">
+                  <h3 className={`font-semibold text-2xl leading-[28.8px] line-clamp-2 ${
+                    isOutOfStock ? 'text-gray-400' : 'text-gray-800'
+                  }`}>
                     {product.name}
                   </h3>
+                  
+                  {/* 재고 정보 */}
+                  <div className="text-sm text-gray-500">
+                    {isOutOfStock ? (
+                      <span className="text-red-500 font-medium">품절</span>
+                    ) : isLowStock ? (
+                      <span className="text-orange-500 font-medium">
+                        재고: {product.stock}개 남음
+                      </span>
+                    ) : (
+                      <span className="text-green-500 font-medium">
+                        재고: {product.stock}개
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right text-base font-bold text-gray-800">
+                <div className={`text-right text-base font-bold ${
+                  isOutOfStock ? 'text-gray-400' : 'text-gray-800'
+                }`}>
                   ₩ {product.price.toLocaleString()}
                 </div>
               </CardContent>

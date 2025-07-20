@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addToCart } from '@/features/cart/api';
 import { useAuthStore } from '@/features/auth/authStore';
+import { toast } from 'sonner';
 
 interface ProductDetailProps {
   id: string;
@@ -20,6 +21,7 @@ export function ProductDetail({ id }: ProductDetailProps) {
   const { data: product, isLoading, error } = useProduct(id);
   const { addItem } = useCartStore();
   const [quantity, setQuantity] = useState(1);
+  const [inputValue, setInputValue] = useState('1'); // 입력 중인 값을 별도로 관리
   const [showToast, setShowToast] = useState(false);
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
@@ -35,34 +37,109 @@ export function ProductDetail({ id }: ProductDetailProps) {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       setShowToast(true);
       setQuantity(1);
+      setInputValue('1');
       setTimeout(() => setShowToast(false), 2000);
+    },
+    onError: (error: any) => {
+      // 재고 부족 등의 에러 처리
+      if (error?.response?.status === 400) {
+        toast.error('재고가 부족합니다.');
+      } else {
+        toast.error('장바구니 추가에 실패했습니다.');
+      }
     },
   });
 
-  const handleDecrease = () => setQuantity(q => Math.max(1, q - 1));
-  const handleIncrease = () => setQuantity(q => q + 1);
+  const handleDecrease = () => {
+    if (quantity > 1) {
+      const newQuantity = quantity - 1;
+      setQuantity(newQuantity);
+      setInputValue(newQuantity.toString());
+    }
+  };
+
+  const handleIncrease = () => {
+    if (product && quantity < product.stock) {
+      const newQuantity = quantity + 1;
+      setQuantity(newQuantity);
+      setInputValue(newQuantity.toString());
+    } else if (product && quantity >= product.stock) {
+      toast.error('재고 수량을 초과할 수 없습니다.');
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = Number(e.target.value);
-    if (isNaN(value) || value < 1) value = 1;
-    setQuantity(value);
+    const value = e.target.value;
+    setInputValue(value); // 입력 중인 값은 그대로 저장
+    
+    // 빈 문자열이거나 숫자가 아닌 경우 quantity는 변경하지 않음
+    if (value === '' || isNaN(Number(value))) {
+      return;
+    }
+    
+    let numValue = Number(value);
+    
+    // 재고 초과 시에만 제한
+    if (product && numValue > product.stock) {
+      numValue = product.stock;
+      setInputValue(numValue.toString());
+      toast.error('재고 수량을 초과할 수 없습니다.');
+    }
+    
+    setQuantity(numValue);
   };
+
   const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     let value = Number(e.target.value);
-    if (isNaN(value) || value < 1) value = 1;
+    
+    // 빈 값이거나 유효하지 않은 값인 경우 1로 설정
+    if (isNaN(value) || value < 1) {
+      value = 1;
+    }
+    
+    // 재고 초과 시 재고 수량으로 제한
+    if (product && value > product.stock) {
+      value = product.stock;
+    }
+    
     setQuantity(value);
+    setInputValue(value.toString());
   };
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       let value = Number((e.target as HTMLInputElement).value);
-      if (isNaN(value) || value < 1) value = 1;
+      
+      // 빈 값이거나 유효하지 않은 값인 경우 1로 설정
+      if (isNaN(value) || value < 1) {
+        value = 1;
+      }
+      
+      // 재고 초과 시 재고 수량으로 제한
+      if (product && value > product.stock) {
+        value = product.stock;
+      }
+      
       setQuantity(value);
+      setInputValue(value.toString());
       (e.target as HTMLInputElement).blur();
     }
   };
 
   const handleAddToCart = () => {
     if (!product) return;
+    
+    // 재고 확인
+    if (product.stock <= 0) {
+      toast.error('현재 재고가 없습니다.');
+      return;
+    }
+    
+    if (quantity > product.stock) {
+      toast.error('재고 수량을 초과할 수 없습니다.');
+      return;
+    }
+
     if (isAuthenticated) {
       addToCartMutation.mutate({
         productId: product.id,
@@ -122,6 +199,9 @@ export function ProductDetail({ id }: ProductDetailProps) {
     return notFound();
   }
 
+  const isOutOfStock = product.stock <= 0;
+  const isLowStock = product.stock <= 5 && product.stock > 0;
+
   return (
     <div className="bg-white flex flex-1 flex-col">
       {renderToast()}
@@ -161,6 +241,24 @@ export function ProductDetail({ id }: ProductDetailProps) {
               <div className="text-gray-600 text-xl md:text-2xl mb-4">
                 ₩ {Number(product.price).toLocaleString()}
               </div>
+              
+              {/* 재고 상태 표시 */}
+              <div className="mb-4">
+                {isOutOfStock ? (
+                  <Badge className="bg-red-100 text-red-700 border border-red-300 px-3 py-1 text-sm font-semibold">
+                    품절
+                  </Badge>
+                ) : isLowStock ? (
+                  <Badge className="bg-orange-100 text-orange-700 border border-orange-300 px-3 py-1 text-sm font-semibold">
+                    재고 부족 (남은 수량: {product.stock}개)
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-100 text-green-700 border border-green-300 px-3 py-1 text-sm font-semibold">
+                    재고 있음 (남은 수량: {product.stock}개)
+                  </Badge>
+                )}
+              </div>
+              
               {/* 설명 */}
               <p className="text-gray-700 text-base md:text-lg mb-8 leading-relaxed">
                 {product.description}
@@ -169,13 +267,18 @@ export function ProductDetail({ id }: ProductDetailProps) {
             {/* 수량/장바구니 */}
             <div className="flex items-center space-x-5 mt-4 mb-8">
               <div className="flex items-center border rounded-lg px-4 py-2 text-lg md:text-xl w-40 justify-between">
-                <button className="px-2 py-1" onClick={handleDecrease}>
+                <button 
+                  className="px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  onClick={handleDecrease}
+                  disabled={quantity <= 1}
+                >
                   -
                 </button>
                 <input
                   type="number"
                   min={1}
-                  value={quantity}
+                  max={product.stock}
+                  value={inputValue}
                   onChange={handleInputChange}
                   onBlur={handleInputBlur}
                   onKeyDown={handleInputKeyDown}
@@ -184,16 +287,26 @@ export function ProductDetail({ id }: ProductDetailProps) {
                     MozAppearance: 'textfield',
                     WebkitAppearance: 'none',
                   }}
+                  disabled={isOutOfStock}
                 />
-                <button className="px-2 py-1" onClick={handleIncrease}>
+                <button 
+                  className="px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  onClick={handleIncrease}
+                  disabled={quantity >= product.stock}
+                >
                   +
                 </button>
               </div>
               <button
-                className="flex-1 border rounded-lg py-3 text-lg md:text-xl font-semibold hover:bg-gray-100 transition"
+                className={`flex-1 border rounded-lg py-3 text-lg md:text-xl font-semibold transition ${
+                  isOutOfStock 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'hover:bg-gray-100'
+                }`}
                 onClick={handleAddToCart}
+                disabled={isOutOfStock || addToCartMutation.isPending}
               >
-                장바구니
+                {addToCartMutation.isPending ? '추가 중...' : isOutOfStock ? '품절' : '장바구니'}
               </button>
             </div>
           </div>

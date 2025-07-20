@@ -10,6 +10,9 @@ import { fetchCart, updateCartItem, removeFromCart, clearCart } from '@/features
 import { useAuthStore } from '@/features/auth/authStore';
 import { createOrder } from '@/features/orders/api';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/lib/backend/apiV1/client';
+import { mapToProduct } from '@/features/product/api';
 
 function CartSyncOnRouteChange() {
   const pathname = usePathname();
@@ -37,6 +40,32 @@ function useCartQuery() {
   return isAuthenticated && query.data ? query.data : items;
 }
 
+// 모든 상품 재고 정보를 한 번에 가져오는 훅
+function useProductsStock(productIds: number[]) {
+  const uniqueProductIds = [...new Set(productIds)].filter(id => id > 0);
+  
+  return useQuery({
+    queryKey: ['products-stock', uniqueProductIds],
+    queryFn: async () => {
+      const stockData: Record<number, any> = {};
+      await Promise.all(
+        uniqueProductIds.map(async (productId) => {
+          try {
+            const res = await apiClient.api.getProductById(productId);
+            stockData[productId] = mapToProduct(res.data);
+          } catch (error) {
+            console.error(`Failed to fetch product ${productId}:`, error);
+            stockData[productId] = null;
+          }
+        })
+      );
+      return stockData;
+    },
+    enabled: uniqueProductIds.length > 0,
+    staleTime: 1000 * 60 * 5, // 5분간 캐시
+  });
+}
+
 export function CartPage() {
   const user = useAuthStore(state => state.user);
   const items = useCartQuery();
@@ -47,6 +76,13 @@ export function CartPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
+  // 모든 상품의 재고 정보 가져오기
+  const productIds = items.map(item => item.productId);
+  const { data: productsStock } = useProductsStock(productIds);
+
+  // 각 아이템의 입력 값 상태 관리
+  const [inputValues, setInputValues] = useState<Record<number, string>>({});
+
   // React Query mutation for updateQuantity
   const updateQuantityMutation = useMutation({
     mutationFn: async (vars: { itemId: number; quantity: number }) =>
@@ -54,7 +90,15 @@ export function CartPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
     },
+    onError: (error: any) => {
+      if (error?.response?.status === 400) {
+        toast.error('재고가 부족합니다.');
+      } else {
+        toast.error('수량 변경에 실패했습니다.');
+      }
+    },
   });
+  
   // React Query mutation for removeItem
   const removeItemMutation = useMutation({
     mutationFn: async (itemId: number) => removeFromCart(itemId),
@@ -99,13 +143,21 @@ export function CartPage() {
     },
   });
 
-  const handleUpdateQuantity = (itemId: number, quantity: number) => {
+  const handleUpdateQuantity = (itemId: number, quantity: number, productId: number) => {
+    // 재고 확인
+    const productStock = productsStock?.[productId];
+    if (productStock && quantity > productStock.stock) {
+      toast.error('재고 수량을 초과할 수 없습니다.');
+      return;
+    }
+
     if (isAuthenticated) {
       updateQuantityMutation.mutate({ itemId, quantity });
     } else {
       updateQuantityZustand(itemId, quantity);
     }
   };
+  
   const handleRemoveItem = (itemId: number) => {
     if (isAuthenticated) {
       removeItemMutation.mutate(itemId);
@@ -194,79 +246,166 @@ export function CartPage() {
                   </td>
                 </tr>
               ) : (
-                items.map(item => (
-                  <tr key={item.id} className="border-b last:border-b-0">
-                    <td className="py-4 px-4 flex items-center gap-4">
-                      <Image
-                        src={
-                          !item.image_url || item.image_url.startsWith('http')
-                            ? '/coffee.jpeg'
-                            : item.image_url
-                        }
-                        alt={item.name}
-                        width={80}
-                        height={80}
-                        className="rounded-lg bg-gray-100"
-                      />
-                      <span className="text-gray-700 font-medium">
-                        {item.name}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right w-32 min-w-[7rem] text-gray-600 text-lg">
-                      ₩ {Number(item.price).toLocaleString()}
-                    </td>
-                    <td className="py-4 px-6 text-center w-28 min-w-[6rem]">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
-                          onClick={() =>
-                            handleUpdateQuantity(
-                              item.id,
-                              Math.max(1, item.quantity - 1)
-                            )
+                items.map(item => {
+                  const productStock = productsStock?.[item.productId];
+                  const isOutOfStock = productStock?.stock === 0;
+                  const isLowStock = productStock?.stock && productStock.stock <= 5 && productStock.stock > 0;
+                  const isOverStock = productStock?.stock && item.quantity > productStock.stock;
+
+                  return (
+                    <tr key={item.id} className={`border-b last:border-b-0 ${isOutOfStock ? 'opacity-60' : ''}`}>
+                      <td className="py-4 px-4 flex items-center gap-4">
+                        <Image
+                          src={
+                            !item.image_url || item.image_url.startsWith('http')
+                              ? '/coffee.jpeg'
+                              : item.image_url
                           }
-                          aria-label="Decrease"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={e => {
-                            let value = Number(e.target.value);
-                            if (isNaN(value) || value < 1) value = 1;
-                            handleUpdateQuantity(item.id, value);
-                          }}
-                          className="min-w-[3rem] w-16 border rounded text-center py-2 font-mono"
-                          style={{
-                            appearance: 'auto',
-                          }}
+                          alt={item.name}
+                          width={80}
+                          height={80}
+                          className="rounded-lg bg-gray-100"
                         />
+                        <div className="flex flex-col">
+                          <span className={`font-medium ${isOutOfStock ? 'text-gray-400' : 'text-gray-700'}`}>
+                            {item.name}
+                          </span>
+                          {/* 재고 상태 표시 */}
+                          {productStock && (
+                            <div className="mt-1">
+                              {isOutOfStock ? (
+                                <Badge className="bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 text-xs">
+                                  품절
+                                </Badge>
+                              ) : isLowStock ? (
+                                <Badge className="bg-orange-100 text-orange-700 border border-orange-300 px-2 py-0.5 text-xs">
+                                  재고부족 ({productStock.stock}개)
+                                </Badge>
+                              ) : isOverStock ? (
+                                <Badge className="bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 text-xs">
+                                  재고초과
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-700 border border-green-300 px-2 py-0.5 text-xs">
+                                  재고있음 ({productStock.stock}개)
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-right w-32 min-w-[7rem] text-gray-600 text-lg">
+                        ₩ {Number(item.price).toLocaleString()}
+                      </td>
+                      <td className="py-4 px-6 text-center w-28 min-w-[6rem]">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              const newQuantity = Math.max(1, item.quantity - 1);
+                              handleUpdateQuantity(item.id, newQuantity, item.productId);
+                              setInputValues(prev => ({
+                                ...prev,
+                                [item.id]: newQuantity.toString()
+                              }));
+                            }}
+                            disabled={item.quantity <= 1 || isOutOfStock}
+                            aria-label="Decrease"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={inputValues[item.id] !== undefined ? inputValues[item.id] : item.quantity.toString()}
+                            onChange={e => {
+                              const value = e.target.value;
+                              setInputValues(prev => ({
+                                ...prev,
+                                [item.id]: value
+                              }));
+                              
+                              // 빈 문자열이거나 숫자가 아닌 경우 quantity는 변경하지 않음
+                              if (value === '' || isNaN(Number(value))) {
+                                return;
+                              }
+                              
+                              let numValue = Number(value);
+                              
+                              // 1 미만인 경우 1로 설정
+                              if (numValue < 1) {
+                                numValue = 1;
+                              }
+                              
+                              // 재고 초과 시 재고 수량으로 제한
+                              if (productStock?.stock && numValue > productStock.stock) {
+                                numValue = productStock.stock;
+                                setInputValues(prev => ({
+                                  ...prev,
+                                  [item.id]: numValue.toString()
+                                }));
+                                toast.error('재고 수량을 초과할 수 없습니다.');
+                              }
+                              
+                              handleUpdateQuantity(item.id, numValue, item.productId);
+                            }}
+                            onBlur={e => {
+                              let value = Number(e.target.value);
+                              
+                              // 빈 값이거나 유효하지 않은 값인 경우 1로 설정
+                              if (isNaN(value) || value < 1) {
+                                value = 1;
+                              }
+                              
+                              // 재고 초과 시 재고 수량으로 제한
+                              if (productStock?.stock && value > productStock.stock) {
+                                value = productStock.stock;
+                              }
+                              
+                              handleUpdateQuantity(item.id, value, item.productId);
+                              setInputValues(prev => ({
+                                ...prev,
+                                [item.id]: value.toString()
+                              }));
+                            }}
+                            className={`min-w-[3rem] w-16 border rounded text-center py-2 font-mono ${
+                              isOutOfStock ? 'bg-gray-100' : ''
+                            }`}
+                            style={{
+                              appearance: 'auto',
+                            }}
+                            disabled={isOutOfStock}
+                          />
+                          <button
+                            className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              const newQuantity = item.quantity + 1;
+                              handleUpdateQuantity(item.id, newQuantity, item.productId);
+                              setInputValues(prev => ({
+                                ...prev,
+                                [item.id]: newQuantity.toString()
+                              }));
+                            }}
+                            disabled={productStock?.stock ? item.quantity >= productStock.stock : false || isOutOfStock}
+                            aria-label="Increase"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right w-36 min-w-[8rem] text-gray-700 text-lg">
+                        ₩ {(item.price * item.quantity).toLocaleString()}
+                      </td>
+                      <td className="py-4 px-4 text-center w-12">
                         <button
-                          className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
-                          onClick={() =>
-                            handleUpdateQuantity(item.id, item.quantity + 1)
-                          }
-                          aria-label="Increase"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-amber-600 hover:text-red-500 text-2xl"
                         >
-                          +
+                          🗑️
                         </button>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right w-36 min-w-[8rem] text-gray-700 text-lg">
-                      ₩ {(item.price * item.quantity).toLocaleString()}
-                    </td>
-                    <td className="py-4 px-4 text-center w-12">
-                      <button
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="text-amber-600 hover:text-red-500 text-2xl"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
