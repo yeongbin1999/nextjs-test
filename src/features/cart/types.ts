@@ -22,10 +22,11 @@ export interface CartResponse {
 
 // 클라이언트에서 사용할 타입
 export interface CartItem {
-  id: number;
+  id: number; // cartItemId
+  productId: number;
   name: string;
   price: number;
-  image_url: string;
+  image_url?: string;
   quantity: number;
 }
 

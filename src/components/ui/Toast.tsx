@@ -15,14 +15,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToast({ message: '', visible: false }), duration);
   }, []);
 
+  const renderToast = () => {
+    if (!toast.visible) return null;
+
+    return (
+      <div className="fixed bottom-6 right-6 z-[9999] bg-gray-900 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
+        {toast.message}
+      </div>
+    );
+  };
+
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
-      {toast.visible && (
-        <div className="fixed bottom-6 right-6 z-[9999] bg-gray-900 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
-          {toast.message}
-        </div>
-      )}
+      {renderToast()}
     </ToastContext.Provider>
   );
 }

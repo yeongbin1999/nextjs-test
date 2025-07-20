@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useProducts } from '@/features/product/hooks/useProducts';
 import Link from 'next/link';
-import { QueryProvider } from '@/components/providers/QueryProvider';
 
 export function ProductGrid() {
   const { data: products, isLoading, error } = useProducts();
@@ -68,7 +67,7 @@ export function ProductGrid() {
                   })`,
                 }}
               >
-                {isNew && (
+                {isNew ? (
                   <Badge
                     className="
                       absolute top-0 right-5
@@ -85,7 +84,7 @@ export function ProductGrid() {
                   >
                     NEW
                   </Badge>
-                )}
+                ) : null}
               </div>
               {/* 하단 정보 */}
               <CardContent className="min-h-[120px] p-4 pr-6 pb-0 flex flex-col justify-between">

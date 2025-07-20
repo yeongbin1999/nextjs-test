@@ -1,17 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/authStore';
 
 export function ProfilePage() {
-  const { user, isAuthenticated, updateUser } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    address: user?.address || '',
-  });
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwForm, setPwForm] = useState({
     current: '',
@@ -19,28 +13,12 @@ export function ProfilePage() {
     confirm: '',
   });
   const [pwError, setPwError] = useState('');
-  const router = useRouter();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      alert('로그인이 필요합니다.');
-      router.push('/login?redirect=/profile');
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    if (showPwModal) {
-      if (pwForm.newPw && pwForm.confirm && pwForm.newPw !== pwForm.confirm) {
-        setPwError('새 비밀번호가 일치하지 않습니다.');
-      } else {
-        setPwError('');
-      }
-    }
-  }, [pwForm, showPwModal]);
-
-  if (!isAuthenticated) {
-    return null;
-  }
+  const [form, setForm] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,6 +27,7 @@ export function ProfilePage() {
 
   const handleSave = () => {
     if (!user) return;
+
     updateUser({
       ...user,
       name: form.name,
@@ -76,6 +55,73 @@ export function ProfilePage() {
     setPwForm({ current: '', newPw: '', confirm: '' });
     setPwError('');
     alert('비밀번호가 변경되었습니다. (실제 저장 로직 필요)');
+  };
+
+  const renderPasswordModal = () => {
+    if (!showPwModal) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.24)' }}
+      >
+        <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-xs flex flex-col gap-4">
+          <h3 className="text-lg font-bold mb-2">비밀번호 변경</h3>
+          <input
+            type="password"
+            name="current"
+            value={pwForm.current}
+            onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+            placeholder="기존 비밀번호"
+            className="border rounded px-3 py-2"
+          />
+          <input
+            type="password"
+            name="newPw"
+            value={pwForm.newPw}
+            onChange={e => setPwForm(f => ({ ...f, newPw: e.target.value }))}
+            placeholder="새 비밀번호"
+            className="border rounded px-3 py-2"
+          />
+          <input
+            type="password"
+            name="confirm"
+            value={pwForm.confirm}
+            onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+            placeholder="비밀번호 확인"
+            className="border rounded px-3 py-2"
+          />
+          {renderPasswordError()}
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              className="bg-amber-200 text-amber-900 px-3 py-2 rounded hover:bg-amber-300 text-sm font-semibold"
+              onClick={handlePwSave}
+              disabled={
+                !pwForm.current || !pwForm.newPw || !pwForm.confirm || !!pwError
+              }
+            >
+              변경
+            </button>
+            <button
+              className="bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 text-sm font-semibold"
+              onClick={() => {
+                setShowPwModal(false);
+                setPwForm({ current: '', newPw: '', confirm: '' });
+                setPwError('');
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPasswordError = () => {
+    if (!pwError) return null;
+
+    return <span className="text-red-500 text-xs mt-1">{pwError}</span>;
   };
 
   return (
@@ -177,73 +223,7 @@ export function ProfilePage() {
           )}
         </div>
         {/* 비밀번호 변경 모달 */}
-        {showPwModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.24)' }}
-          >
-            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-xs flex flex-col gap-4">
-              <h3 className="text-lg font-bold mb-2">비밀번호 변경</h3>
-              <input
-                type="password"
-                name="current"
-                value={pwForm.current}
-                onChange={e =>
-                  setPwForm(f => ({ ...f, current: e.target.value }))
-                }
-                placeholder="기존 비밀번호"
-                className="border rounded px-3 py-2"
-              />
-              <input
-                type="password"
-                name="newPw"
-                value={pwForm.newPw}
-                onChange={e =>
-                  setPwForm(f => ({ ...f, newPw: e.target.value }))
-                }
-                placeholder="새 비밀번호"
-                className="border rounded px-3 py-2"
-              />
-              <input
-                type="password"
-                name="confirm"
-                value={pwForm.confirm}
-                onChange={e =>
-                  setPwForm(f => ({ ...f, confirm: e.target.value }))
-                }
-                placeholder="비밀번호 확인"
-                className="border rounded px-3 py-2"
-              />
-              {pwError && (
-                <span className="text-red-500 text-xs mt-1">{pwError}</span>
-              )}
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  className="bg-amber-200 text-amber-900 px-3 py-2 rounded hover:bg-amber-300 text-sm font-semibold"
-                  onClick={handlePwSave}
-                  disabled={
-                    !pwForm.current ||
-                    !pwForm.newPw ||
-                    !pwForm.confirm ||
-                    !!pwError
-                  }
-                >
-                  변경
-                </button>
-                <button
-                  className="bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 text-sm font-semibold"
-                  onClick={() => {
-                    setShowPwModal(false);
-                    setPwForm({ current: '', newPw: '', confirm: '' });
-                    setPwError('');
-                  }}
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {renderPasswordModal()}
       </div>
     </div>
   );

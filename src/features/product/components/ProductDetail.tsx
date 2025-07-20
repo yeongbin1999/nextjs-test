@@ -8,6 +8,9 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { addToCart } from '@/features/cart/api';
+import { useAuthStore } from '@/features/auth/authStore';
 
 interface ProductDetailProps {
   id: string;
@@ -18,6 +21,23 @@ export function ProductDetail({ id }: ProductDetailProps) {
   const { addItem } = useCartStore();
   const [quantity, setQuantity] = useState(1);
   const [showToast, setShowToast] = useState(false);
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const addToCartMutation = useMutation({
+    mutationFn: async (vars: {
+      productId: number;
+      quantity: number;
+      name: string;
+      price: number;
+      image_url: string;
+    }) => addToCart(vars),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      setShowToast(true);
+      setQuantity(1);
+      setTimeout(() => setShowToast(false), 2000);
+    },
+  });
 
   const handleDecrease = () => setQuantity(q => Math.max(1, q - 1));
   const handleIncrease = () => setQuantity(q => q + 1);
@@ -43,15 +63,36 @@ export function ProductDetail({ id }: ProductDetailProps) {
 
   const handleAddToCart = () => {
     if (!product) return;
+    if (isAuthenticated) {
+      addToCartMutation.mutate({
+        productId: product.id,
+        quantity,
+        name: product.name,
+        price: product.price,
+        image_url: product.image_url || '/placeholder.png',
+      });
+    } else {
+      addItem(product.id, quantity, {
+        name: product.name,
+        price: product.price,
+        image_url: product.image_url || '/placeholder.png',
+      });
+      setShowToast(true);
+      setQuantity(1);
+      setTimeout(() => setShowToast(false), 2000);
+    }
+  };
 
-    addItem(product.id, quantity, {
-      name: product.name,
-      price: product.price,
-      image_url: product.image_url || '/placeholder.png',
-    });
-    setShowToast(true);
-    setQuantity(1);
-    setTimeout(() => setShowToast(false), 2000);
+  const renderToast = () => {
+    if (!showToast) return null;
+
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+        <div className="bg-black text-white px-6 py-3 rounded shadow text-lg font-semibold">
+          장바구니에 담겼습니다!
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -81,19 +122,9 @@ export function ProductDetail({ id }: ProductDetailProps) {
     return notFound();
   }
 
-  // 임의의 속성/별점 데이터 (실제 데이터에 맞게 수정 가능)
-
-  const isNew = product.name.includes('NEW'); // 상품명에 'NEW'가 포함되어 있는지 확인
-
   return (
     <div className="bg-white flex flex-1 flex-col">
-      {showToast && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div className="bg-black text-white px-6 py-3 rounded shadow text-lg font-semibold">
-            장바구니에 담겼습니다!
-          </div>
-        </div>
-      )}
+      {renderToast()}
       <div className="w-full bg-[#FAF4EB] mt-10 pl-10 h-16 flex items-center justify-start text-gray-500 text-base md:text-lg rounded-xl shadow-sm">
         <div className="flex items-center h-full px-30">
           <span className="text-gray-700 font-medium mr-2">Shop</span>
@@ -106,9 +137,13 @@ export function ProductDetail({ id }: ProductDetailProps) {
       <div className="flex-1 flex items-center justify-center">
         <div className="max-w-[1100px] w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-14 items-stretch bg-white rounded-2xl px-4 md:px-12">
           {/* 상품 이미지 */}
-          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-start min-h-[500px] h-[500px] relative mt-4 md:pl-16">
+          <div className="bg-[#FAF4EB] rounded-xl p-8 flex justify-center items-center min-h-[480px] h-[480px] relative mt-4">
             <Image
-              src={(!product.image_url || product.image_url.startsWith('http')) ? '/coffee.jpeg' : product.image_url}
+              src={
+                !product.image_url || product.image_url.startsWith('http')
+                  ? '/coffee.jpeg'
+                  : product.image_url
+              }
               alt={product.name}
               width={400}
               height={600}
@@ -120,26 +155,8 @@ export function ProductDetail({ id }: ProductDetailProps) {
           {/* 상품 정보 */}
           <div className="flex flex-col justify-between h-[500px] min-h-[500px] self-stretch mt-4 md:pr-16">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-4 flex items-center gap-1 mt-12">
-                {isNew && (
-                  <Badge
-                    className="
-                      bg-green-100 text-green-700
-                      border border-green-300
-                      rounded-full
-                      px-2 py-0.5
-                      text-sm font-bold
-                      shadow
-                      uppercase
-                      tracking-wider
-                      align-middle
-                      inline-flex
-                    "
-                  >
-                    NEW
-                  </Badge>
-                )}
-                <span className="align-middle">{product.name}</span>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4 mt-8">
+                {product.name}
               </h1>
               <div className="text-gray-600 text-xl md:text-2xl mb-4">
                 ₩ {Number(product.price).toLocaleString()}

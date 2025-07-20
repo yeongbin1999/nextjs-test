@@ -39,9 +39,11 @@ export default function RootLayout({
           visibleToasts={1}
           toastOptions={{
             className: [
+              'flex items-center justify-center text-center',
               'text-base font-bold py-3 px-6 rounded-2xl shadow-2xl z-[99999]',
               'bg-black/90 text-white border-4 border-yellow-400',
             ].join(' '),
+            duration: 1500,
           }}
           style={{
             position: 'fixed',

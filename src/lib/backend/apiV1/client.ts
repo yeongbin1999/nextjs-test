@@ -35,7 +35,10 @@ apiClient.instance.interceptors.request.use(
 
     // 회원가입, 로그인 등은 토큰을 붙이지 않음
     const noAuthPaths = ['/api/v1/auth/signup', '/api/v1/auth/login'];
-    if (typeof config.url === 'string' && noAuthPaths.some(path => config.url.includes(path))) {
+    if (
+      typeof config.url === 'string' &&
+      noAuthPaths.some(path => config.url?.includes(path))
+    ) {
       return config;
     }
 
@@ -72,12 +75,12 @@ apiClient.instance.interceptors.response.use(
 
     return response;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
     // 에러 로깅
     console.log('❌ API 에러:', {
       status: error.response?.status,
-      url: error.config?.url,
-      baseURL: error.config?.baseURL,
+      url: error.config?.url ?? '',
+      baseURL: error.config?.baseURL ?? '',
       fullURL: (error.config?.baseURL || '') + (error.config?.url || ''),
       message: error.message,
       response: error.response?.data,
@@ -89,9 +92,20 @@ apiClient.instance.interceptors.response.use(
       typeof window !== 'undefined' &&
       window.location.pathname !== '/login'
     ) {
-      // 토큰 만료 시 로그아웃 처리 (단, 현재 경로가 /login이 아닐 때만)
-      localStorage.removeItem('accessToken');
-      window.location.href = '/login';
+      // 1. refreshToken으로 재발급 시도
+      try {
+        await apiClient.api.reissue();
+        // 새 accessToken이 저장됨 (응답 인터셉터에서)
+        // 원래 요청을 재시도
+        if (error.config) {
+          return apiClient.instance.request(error.config);
+        }
+      } catch (refreshError) {
+        // 2. 재발급도 실패하면 로그아웃
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
     }
     return Promise.reject(error);
   }

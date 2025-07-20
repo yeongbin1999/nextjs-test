@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { CartItem } from './types';
 import {
   fetchCart,
@@ -20,7 +20,7 @@ interface CartStore {
   addItem: (
     productId: number,
     quantity: number,
-    productInfo: Omit<CartItem, 'id' | 'quantity'>
+    productInfo: Omit<CartItem, 'id' | 'quantity' | 'productId'>
   ) => Promise<void>;
   updateQuantity: (itemId: number, quantity: number) => void;
   removeItem: (itemId: number) => Promise<void>;
@@ -28,6 +28,7 @@ interface CartStore {
 
   getTotalCount: () => number;
   getTotalPrice: () => number;
+  _hasHydrated: boolean;
 }
 
 // flushCartSync를 export
@@ -57,6 +58,7 @@ export const useCartStore = create<CartStore>()(
         items: [],
         isLoading: false,
         error: null,
+        _hasHydrated: false,
 
         fetch: async () => {
           set({ isLoading: true, error: null });
@@ -65,9 +67,10 @@ export const useCartStore = create<CartStore>()(
             set({ items, isLoading: false });
             lastSyncItems = items;
           } catch (e: any) {
-            const msg = e.message && e.message.includes('로그인이 필요합니다')
-              ? '오류가 발생했습니다. 다시 시도해 주세요.'
-              : e.message || '장바구니 조회 실패';
+            const msg =
+              e.message && e.message.includes('로그인이 필요합니다')
+                ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                : e.message || '장바구니 조회 실패';
             set({ error: msg, isLoading: false });
           }
         },
@@ -75,18 +78,20 @@ export const useCartStore = create<CartStore>()(
         addItem: async (
           productId: number,
           quantity: number,
-          productInfo: Omit<CartItem, 'id' | 'quantity'>
+          productInfo: Omit<CartItem, 'id' | 'quantity' | 'productId'>
         ) => {
           const userId = useAuthStore.getState().user?.id;
           if (!userId) {
-            // 비로그인: 로컬 상태만 변경
+            // 비로그인: 로컬 상태만 변경 (id는 productId, productId도 명시)
             set(state => {
-              const existingItem = state.items.find(i => i.id === productId);
+              const existingItem = state.items.find(
+                i => i.productId === productId
+              );
               if (existingItem) {
                 return {
                   ...state,
                   items: state.items.map(i =>
-                    i.id === productId
+                    i.productId === productId
                       ? { ...i, quantity: i.quantity + quantity }
                       : i
                   ),
@@ -97,7 +102,8 @@ export const useCartStore = create<CartStore>()(
                 items: [
                   ...state.items,
                   {
-                    id: productId,
+                    id: productId, // 게스트는 id=productId
+                    productId,
                     quantity,
                     ...productInfo,
                   },
@@ -116,9 +122,10 @@ export const useCartStore = create<CartStore>()(
             set({ items, isLoading: false });
             lastSyncItems = items;
           } catch (e: any) {
-            const msg = e.message && e.message.includes('로그인이 필요합니다')
-              ? '오류가 발생했습니다. 다시 시도해 주세요.'
-              : e.message || '장바구니 추가 실패';
+            const msg =
+              e.message && e.message.includes('로그인이 필요합니다')
+                ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                : e.message || '장바구니 추가 실패';
             set({ error: msg, isLoading: false });
           }
         },
@@ -139,15 +146,23 @@ export const useCartStore = create<CartStore>()(
           pendingSync = async () => {
             try {
               const item = get().items.find(i => i.id === itemId);
-              if (item && item.quantity !== (lastSyncItems.find(i => i.id === itemId)?.quantity ?? 0)) {
-                const items = await apiUpdateCartItem({ itemId, quantity: item.quantity });
+              if (
+                item &&
+                item.quantity !==
+                  (lastSyncItems.find(i => i.id === itemId)?.quantity ?? 0)
+              ) {
+                const items = await apiUpdateCartItem({
+                  itemId,
+                  quantity: item.quantity,
+                });
                 set({ items });
                 lastSyncItems = items;
               }
             } catch (e: any) {
-              const msg = e.message && e.message.includes('로그인이 필요합니다')
-                ? '오류가 발생했습니다. 다시 시도해 주세요.'
-                : e.message || '수량 변경 실패';
+              const msg =
+                e.message && e.message.includes('로그인이 필요합니다')
+                  ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                  : e.message || '수량 변경 실패';
               set({ error: msg });
             }
           };
@@ -174,9 +189,10 @@ export const useCartStore = create<CartStore>()(
             set({ items, isLoading: false });
             lastSyncItems = items;
           } catch (e: any) {
-            const msg = e.message && e.message.includes('로그인이 필요합니다')
-              ? '오류가 발생했습니다. 다시 시도해 주세요.'
-              : e.message || '삭제 실패';
+            const msg =
+              e.message && e.message.includes('로그인이 필요합니다')
+                ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                : e.message || '삭제 실패';
             set({ error: msg, isLoading: false });
           }
         },
@@ -194,9 +210,10 @@ export const useCartStore = create<CartStore>()(
             set({ items: [], isLoading: false });
             lastSyncItems = [];
           } catch (e: any) {
-            const msg = e.message && e.message.includes('로그인이 필요합니다')
-              ? '오류가 발생했습니다. 다시 시도해 주세요.'
-              : e.message || '장바구니 비우기 실패';
+            const msg =
+              e.message && e.message.includes('로그인이 필요합니다')
+                ? '오류가 발생했습니다. 다시 시도해 주세요.'
+                : e.message || '장바구니 비우기 실패';
             set({ error: msg, isLoading: false });
           }
         },
@@ -216,6 +233,14 @@ export const useCartStore = create<CartStore>()(
     {
       name: 'cart-storage',
       partialize: state => ({ items: state.items }),
+      storage: createJSONStorage(() => sessionStorage),
+      onRehydrateStorage: () => state => {
+        if (state) state._hasHydrated = true;
+      },
     }
   )
 );
+
+export function useCartHydrated() {
+  return useCartStore(state => state._hasHydrated);
+}

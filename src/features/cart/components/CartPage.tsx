@@ -2,11 +2,12 @@
 
 import { useCartStore } from '@/features/cart/cartStore';
 import Image from 'next/image';
-import { useState } from 'react';
-import React from 'react';
-import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { flushCartSync } from '@/features/cart/cartStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchCart, updateCartItem, removeFromCart } from '@/features/cart/api';
+import { useAuthStore } from '@/features/auth/authStore';
 
 function CartSyncOnRouteChange() {
   const pathname = usePathname();
@@ -20,14 +21,66 @@ function CartSyncOnRouteChange() {
   return null;
 }
 
-export function CartPage() {
-  const { items, updateQuantity, removeItem, getTotalPrice, fetch } = useCartStore();
-  const subtotal = getTotalPrice();
+function useCartQuery() {
+  const user = useAuthStore(state => state.user);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const items = useCartStore(state => state.items);
+  const query = useQuery({
+    queryKey: ['cart', user?.id],
+    queryFn: fetchCart,
+    enabled: !!user?.id && isAuthenticated,
+    staleTime: 1000 * 60,
+  });
+  // 로그인: 서버 데이터, 비로그인: zustand
+  return isAuthenticated && query.data ? query.data : items;
+}
 
-  // 페이지 마운트 시 서버 장바구니 fetch
-  React.useEffect(() => {
-    fetch();
-  }, [fetch]);
+export function CartPage() {
+  const user = useAuthStore(state => state.user);
+  const items = useCartQuery();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const updateQuantityZustand = useCartStore(state => state.updateQuantity);
+  const removeItemZustand = useCartStore(state => state.removeItem);
+  const getTotalPrice = useCartStore(state => state.getTotalPrice);
+  const queryClient = useQueryClient();
+
+  // React Query mutation for updateQuantity
+  const updateQuantityMutation = useMutation({
+    mutationFn: async (vars: { itemId: number; quantity: number }) =>
+      updateCartItem(vars),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+    },
+  });
+  // React Query mutation for removeItem
+  const removeItemMutation = useMutation({
+    mutationFn: async (itemId: number) => removeFromCart(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+    },
+  });
+
+  const handleUpdateQuantity = (itemId: number, quantity: number) => {
+    if (isAuthenticated) {
+      updateQuantityMutation.mutate({ itemId, quantity });
+    } else {
+      updateQuantityZustand(itemId, quantity);
+    }
+  };
+  const handleRemoveItem = (itemId: number) => {
+    if (isAuthenticated) {
+      removeItemMutation.mutate(itemId);
+    } else {
+      removeItemZustand(itemId);
+    }
+  };
+
+  const subtotal = items.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <div className="flex flex-col md:flex-row gap-8 p-8 min-h-[60vh]">
@@ -67,7 +120,11 @@ export function CartPage() {
                   <tr key={item.id} className="border-b last:border-b-0">
                     <td className="py-4 px-4 flex items-center gap-4">
                       <Image
-                        src={(!item.image_url || item.image_url.startsWith('http')) ? '/coffee.jpeg' : item.image_url}
+                        src={
+                          !item.image_url || item.image_url.startsWith('http')
+                            ? '/coffee.jpeg'
+                            : item.image_url
+                        }
                         alt={item.name}
                         width={80}
                         height={80}
@@ -84,9 +141,12 @@ export function CartPage() {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
-                          onClick={async () => {
-                            await updateQuantity(item.id, Math.max(1, item.quantity - 1));
-                          }}
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              item.id,
+                              Math.max(1, item.quantity - 1)
+                            )
+                          }
                           aria-label="Decrease"
                         >
                           -
@@ -98,16 +158,18 @@ export function CartPage() {
                           onChange={e => {
                             let value = Number(e.target.value);
                             if (isNaN(value) || value < 1) value = 1;
-                            updateQuantity(item.id, value);
+                            handleUpdateQuantity(item.id, value);
                           }}
-                          className="min-w-[3rem] w-16 border rounded text-center py-2 font-mono appearance-auto"
-                          style={{ appearance: 'auto', WebkitAppearance: 'auto' as any, MozAppearance: 'auto' as any }}
+                          className="min-w-[3rem] w-16 border rounded text-center py-2 font-mono"
+                          style={{
+                            appearance: 'auto',
+                          }}
                         />
                         <button
                           className="px-2 py-1 text-lg text-gray-500 hover:text-amber-600 border rounded flex-shrink-0"
-                          onClick={async () => {
-                            await updateQuantity(item.id, item.quantity + 1);
-                          }}
+                          onClick={() =>
+                            handleUpdateQuantity(item.id, item.quantity + 1)
+                          }
                           aria-label="Increase"
                         >
                           +
@@ -119,7 +181,7 @@ export function CartPage() {
                     </td>
                     <td className="py-4 px-4 text-center w-12">
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => handleRemoveItem(item.id)}
                         className="text-amber-600 hover:text-red-500 text-2xl"
                       >
                         🗑️
@@ -135,16 +197,20 @@ export function CartPage() {
       {/* Cart Totals */}
       <div className="w-full md:w-96 bg-[#FAF4EB] rounded-xl p-8 h-fit shadow-sm md:ml-8 md:mt-[56px]">
         <h2 className="text-2xl font-bold mb-6">Cart Totals</h2>
-        <div className="flex justify-between mb-2 text-lg">
-          <span>Subtotal</span>
-          <span className="text-gray-400">₩ {subtotal.toLocaleString()}</span>
+        <div className="space-y-4">
+          <div className="flex justify-between text-xl font-bold">
+            <span>Total:</span>
+            <span
+              className={
+                mounted && subtotal !== 0 ? 'text-gray-900' : 'text-gray-400'
+              }
+            >
+              ₩ {mounted ? subtotal.toLocaleString() : 0}
+            </span>
+          </div>
         </div>
-        <div className="flex justify-between mb-6 text-xl font-semibold">
-          <span>Total</span>
-          <span className="text-amber-600">₩ {subtotal.toLocaleString()}</span>
-        </div>
-        <button className="w-full border rounded-lg py-3 text-lg font-semibold hover:bg-gray-100 transition">
-          Check Out
+        <button className="w-full bg-amber-600 text-white py-3 rounded-lg mt-6 hover:bg-amber-700 transition-colors">
+          Proceed to Checkout
         </button>
       </div>
     </div>

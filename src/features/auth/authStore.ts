@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { apiClient } from '@/lib/backend/apiV1/client';
-import type {
-  LoginRequest,
-  SignupRequest,
-  UserResponse,
-} from '@/lib/backend/apiV1/api';
+import type { LoginRequest, SignupRequest } from '@/lib/backend/apiV1/api';
 import { useCartStore } from '@/features/cart/cartStore';
-import { fetchCart, clearCart as clearServerCart, addToCart } from '@/features/cart/api';
+import { fetchCart, addToCart, updateCartItem } from '@/features/cart/api';
+import { queryClient } from '@/components/providers/QueryProvider';
 
 // 브라우저 환경에서만 localStorage 사용
 const isBrowser = typeof window !== 'undefined';
@@ -80,54 +77,32 @@ export const useAuthStore = create<AuthStore>(set => ({
         // 1. 인증 상태 최신화(토큰 저장 후 user 정보 fetch)
         await useAuthStore.getState().checkAuth();
         const userId = useAuthStore.getState().user?.id;
+        console.log('userId:', userId);
         if (!userId) return; // userId 없으면 동기화 중단
-        // 2. 서버 장바구니 fetch
-        let serverCart: any[] = [];
-        try {
-          serverCart = await fetchCart();
-        } catch (e) {
-          serverCart = [];
+
+        // 2. 게스트 장바구니와 서버 장바구니 병합
+        await mergeGuestCartWithServerCart();
+
+        // 3. React Query cart 쿼리 invalidate
+        if (queryClient) {
+          queryClient.invalidateQueries({ queryKey: ['cart', userId] });
         }
-        // 3. 로컬 장바구니 아이템 가져오기
-        const localCartItems = useCartStore.getState().items;
-        // 4. 상품ID 기준으로 합치기(수량 합산)
-        const mergedMap = new Map();
-        for (const item of [...serverCart, ...localCartItems]) {
-          if (mergedMap.has(item.id)) {
-            mergedMap.set(item.id, {
-              ...item,
-              quantity: mergedMap.get(item.id).quantity + item.quantity,
-            });
-          } else {
-            mergedMap.set(item.id, { ...item });
-          }
-        }
-        const mergedCart = Array.from(mergedMap.values());
-        // 5. 서버 장바구니 비우기
-        await clearServerCart();
-        // 6. 합쳐진 장바구니를 서버에 모두 추가
-        for (const item of mergedCart) {
-          try {
-            await addToCart({ productId: item.id, quantity: item.quantity });
-          } catch (e) {
-            // 중복 등 에러 무시하고 계속 진행
-            console.warn('장바구니 동기화 실패:', e);
-          }
-        }
-        // 7. zustand 상태도 합쳐진 값으로 set
-        useCartStore.setState({ items: mergedCart });
-        // 8. localStorage(cart-storage)도 서버 상태로 덮어쓰기
-        localStorage.setItem('cart-storage', JSON.stringify({ state: { items: mergedCart } }));
       }
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       console.error('로그인 에러:', error);
 
       // 백엔드에서 반환한 에러 메시지 처리
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error instanceof Error) {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const errorResponse = error as {
+          response?: { data?: { message?: string } };
+        };
+        if (errorResponse.response?.data?.message) {
+          throw new Error(errorResponse.response.data.message);
+        }
+      }
+      if (error instanceof Error) {
         throw new Error(`로그인에 실패했습니다: ${error.message}`);
       } else {
         throw new Error('로그인에 실패했습니다.');
@@ -144,14 +119,20 @@ export const useAuthStore = create<AuthStore>(set => ({
 
       set({ isLoading: false });
       console.log('✅ 회원가입 성공');
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       console.error('회원가입 에러:', error);
 
       // 백엔드에서 반환한 에러 메시지 처리
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error instanceof Error) {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const errorResponse = error as {
+          response?: { data?: { message?: string } };
+        };
+        if (errorResponse.response?.data?.message) {
+          throw new Error(errorResponse.response.data.message);
+        }
+      }
+      if (error instanceof Error) {
         throw new Error(`회원가입에 실패했습니다: ${error.message}`);
       } else {
         throw new Error('회원가입에 실패했습니다.');
@@ -163,14 +144,17 @@ export const useAuthStore = create<AuthStore>(set => ({
     try {
       await apiClient.api.logout();
       console.log('✅ 로그아웃 성공');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('로그아웃 에러:', error);
     } finally {
       // 로컬 상태 초기화
       if (isBrowser) {
-        // 서버 items를 localStorage(cart-storage)에 저장
+        // 서버 items를 sessionStorage(cart-storage)에 저장
         const items = useCartStore.getState().items;
-        localStorage.setItem('cart-storage', JSON.stringify({ state: { items } }));
+        sessionStorage.setItem(
+          'cart-storage',
+          JSON.stringify({ state: { items } })
+        );
         localStorage.removeItem('accessToken');
       }
       useCartStore.setState({ items: [] });
@@ -205,7 +189,7 @@ export const useAuthStore = create<AuthStore>(set => ({
       };
 
       set({ user, isAuthenticated: true });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('인증 확인 에러:', error);
       if (isBrowser) {
         localStorage.removeItem('accessToken');
@@ -214,3 +198,45 @@ export const useAuthStore = create<AuthStore>(set => ({
     }
   },
 }));
+
+// 게스트 장바구니와 서버 장바구니 병합 함수
+async function mergeGuestCartWithServerCart() {
+  const localCartItems = useCartStore.getState().items; // 게스트 장바구니
+  const serverCart = await fetchCart(); // 서버 장바구니
+
+  const serverCartMap = new Map<number, { id: number; quantity: number }>();
+  serverCart.forEach(item => {
+    serverCartMap.set(Number(item.productId), {
+      id: item.id, // cartItemId
+      quantity: item.quantity,
+    });
+  });
+
+  for (const guestItem of localCartItems) {
+    const pid = Number(guestItem.productId);
+    if (isNaN(pid)) continue; // 잘못된 productId 스킵
+
+    const serverItem = serverCartMap.get(pid);
+    if (serverItem) {
+      // 서버에 이미 있는 경우 → 수량 합산 후 업데이트
+      await updateCartItem({
+        itemId: serverItem.id,
+        quantity: serverItem.quantity + guestItem.quantity,
+      });
+    } else {
+      // 서버에 없는 경우 → 새로 추가
+      await addToCart({
+        productId: pid,
+        quantity: guestItem.quantity,
+      });
+    }
+  }
+
+  // 병합 완료 후 서버 장바구니 다시 fetch
+  const mergedCart = await fetchCart();
+  useCartStore.setState({ items: mergedCart });
+  sessionStorage.setItem(
+    'cart-storage',
+    JSON.stringify({ state: { items: mergedCart } })
+  );
+}

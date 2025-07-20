@@ -1,3 +1,3 @@
 import OrdersPage from '@/features/orders/OrdersPage';
 
-export default OrdersPage; 
+export default OrdersPage;

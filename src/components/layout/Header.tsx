@@ -2,16 +2,38 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingCart, Home as HomeIcon, Store, Receipt } from 'lucide-react';
+import {
+  ShoppingCart,
+  Home as HomeIcon,
+  Store,
+  ClipboardList,
+} from 'lucide-react';
 import { useCartStore } from '@/features/cart/cartStore';
 import { ProfileDropdown } from './ProfileDropdown';
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchCart } from '@/features/cart/api';
+import { useAuthStore } from '@/features/auth/authStore';
+
+function useCartQuery() {
+  const user = useAuthStore(state => state.user);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const items = useCartStore(state => state.items);
+  const query = useQuery({
+    queryKey: ['cart', user?.id],
+    queryFn: fetchCart,
+    enabled: !!user?.id && isAuthenticated,
+    staleTime: 1000 * 60,
+  });
+  // 로그인: 서버 데이터, 비로그인: zustand
+  return isAuthenticated && query.data ? query.data : items;
+}
 
 export function Header() {
-  const { getTotalCount } = useCartStore();
+  const items = useCartQuery();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const totalCount = getTotalCount();
+  const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
@@ -52,7 +74,7 @@ export function Header() {
               className="p-2 text-gray-600 hover:text-gray-900 transition-colors rounded-full"
               aria-label="Orders"
             >
-              <Receipt className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5" />
             </Link>
             <Link
               href="/cart"
@@ -62,10 +84,14 @@ export function Header() {
               <ShoppingCart className="w-5 h-5" />
               <span
                 className={`absolute -top-1 -right-1 text-white text-xs rounded-full flex items-center justify-center min-w-[1.25rem] h-5 px-1 font-semibold ${
-                  totalCount > 0 ? 'bg-red-500' : 'bg-gray-400'
+                  !mounted
+                    ? 'bg-gray-400'
+                    : totalCount > 0
+                      ? 'bg-red-500'
+                      : 'bg-gray-400'
                 }`}
               >
-                {mounted ? (totalCount > 99 ? '99+' : totalCount) : null}
+                {!mounted ? 0 : totalCount}
               </span>
             </Link>
             {/* 프로필 드롭다운 */}

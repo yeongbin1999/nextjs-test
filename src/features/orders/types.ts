@@ -9,4 +9,4 @@ export interface Order {
   status: string;
   total: number;
   items: OrderItem[];
-} 
+}

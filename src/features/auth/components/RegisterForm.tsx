@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { useAuthStore } from '../authStore';
+import { useAuthStore } from '@/features/auth/authStore';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -14,8 +14,8 @@ export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const { register } = useAuthStore();
   const modalRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -36,7 +36,6 @@ export function RegisterForm() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    setSuccess('');
 
     // 프론트엔드 검증
     if (formData.password.length < 8) {
@@ -56,9 +55,15 @@ export function RegisterForm() {
       // 회원가입 성공 시 모달 표시
       setShowSuccessModal(true);
       setIsLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('회원가입 실패:', error);
-      setError(error.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
+      if (error instanceof Error) {
+        setError(
+          error.message || '회원가입에 실패했습니다. 다시 시도해주세요.'
+        );
+      } else {
+        setError('회원가입에 실패했습니다. 다시 시도해주세요.');
+      }
       setIsLoading(false);
     }
   };
@@ -69,6 +74,61 @@ export function RegisterForm() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const renderError = () => {
+    if (!error) return null;
+
+    return (
+      <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">
+        {error}
+      </div>
+    );
+  };
+
+  const renderSuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    return (
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        autoFocus
+        className="fixed inset-0 flex items-center justify-center z-50"
+        style={{ background: 'rgba(0,0,0,0.24)' }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            setShowSuccessModal(false);
+            window.location.href = '/login';
+          }
+        }}
+      >
+        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="text-center">
+            <div className="text-4xl mb-4">🎉</div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              회원가입 성공!
+            </h3>
+            <p className="text-gray-600 mb-6">
+              회원가입이 완료되었습니다.
+              <br />
+              로그인 페이지로 이동합니다.
+            </p>
+            <button
+              ref={buttonRef}
+              autoFocus
+              onClick={() => {
+                setShowSuccessModal(false);
+                window.location.href = '/login';
+              }}
+              className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -148,11 +208,7 @@ export function RegisterForm() {
         </div>
 
         {/* 에러 메시지 */}
-        {error && (
-          <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">
-            {error}
-          </div>
-        )}
+        {renderError()}
 
         {/* 회원가입 버튼 */}
         <button
@@ -188,46 +244,7 @@ export function RegisterForm() {
       </form>
 
       {/* 성공 모달 */}
-      {showSuccessModal && (
-        <div
-          ref={modalRef}
-          tabIndex={-1}
-          autoFocus
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.24)' }}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              setShowSuccessModal(false);
-              window.location.href = '/login';
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🎉</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                회원가입 성공!
-              </h3>
-              <p className="text-gray-600 mb-6">
-                회원가입이 완료되었습니다.
-                <br />
-                로그인 페이지로 이동합니다.
-              </p>
-              <button
-                ref={buttonRef}
-                autoFocus
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  window.location.href = '/login';
-                }}
-                className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderSuccessModal()}
     </div>
   );
 }

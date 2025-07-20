@@ -16,8 +16,6 @@ export const orders: Order[] = [
     date: '2024-05-28',
     status: '배송중',
     total: 12000,
-    items: [
-      { name: '케냐 원두 200g', qty: 1 },
-    ],
+    items: [{ name: '케냐 원두 200g', qty: 1 }],
   },
-]; 
+];

@@ -50,6 +50,22 @@ export function Dropdown({
         })
       : children;
 
+  const renderDropdownContent = () => {
+    if (!isOpen) return null;
+
+    return (
+      <div
+        className={cn(
+          'absolute top-full mt-1 w-fit border border-gray-200 rounded-lg shadow-lg py-2 w-[160px] z-50',
+          align === 'right' ? 'right-0' : 'left-0',
+          className
+        )}
+      >
+        {childrenWithOnClose}
+      </div>
+    );
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -58,28 +74,24 @@ export function Dropdown({
       >
         {trigger}
         <ChevronDown
-          className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
+          className={cn(
+            'w-4 h-4 transition-transform',
+            isOpen ? 'rotate-180' : ''
+          )}
         />
       </button>
 
-      {isOpen && (
-        <div
-          className={cn(
-            'absolute top-full mt-1 w-fit border border-gray-200 rounded-lg shadow-lg py-2 w-[160px] z-50',
-            align === 'right' ? 'right-0' : 'left-0',
-            className
-          )}
-        >
-          {childrenWithOnClose}
-        </div>
-      )}
+      {renderDropdownContent()}
     </div>
   );
 }
 
 interface DropdownItemProps {
   children: React.ReactNode;
-  onClick?: (e?: any, onClose?: () => void) => void;
+  onClick?: (
+    e?: React.MouseEvent<HTMLButtonElement>,
+    onClose?: () => void
+  ) => void;
   className?: string;
   disabled?: boolean;
   onClose?: () => void;
@@ -101,7 +113,7 @@ export function DropdownItem({
       disabled={disabled}
       className={cn(
         'w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors',
-        disabled && 'opacity-50 cursor-not-allowed',
+        disabled ? 'opacity-50 cursor-not-allowed' : '',
         className
       )}
     >
