@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 공개 경로 (권한 검증 불필요)
-  const publicPaths = ['/', '/login', '/register', '/shop', '/product'];
+  const publicPaths = ['/', '/login', '/signup', '/shop', '/product'];
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
 
   // 보호된 경로 (로그인 필요)

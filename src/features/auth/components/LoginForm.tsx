@@ -220,7 +220,7 @@ export function LoginForm() {
         {/* 회원가입 링크 */}
         <div className="text-center">
           <Link
-            href="/register"
+            href="/signup"
             className="text-sm text-gray-600 hover:text-gray-900"
           >
             아직 회원이 아니신가요? 회원가입
