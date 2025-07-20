@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/authStore';
 
-export function RegisterForm() {
+export function SignupForm() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',

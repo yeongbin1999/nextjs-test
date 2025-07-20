@@ -1,9 +1,9 @@
 'use client';
 
-import { RegisterForm } from '@/features/auth/components/RegisterForm';
+import { SignupForm } from '@/features/auth/components/SignupForm';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 
-export default function RegisterPage() {
+export default function SignupPage() {
   return (
     <AuthGuard>
       <div className="flex flex-1 h-full">
@@ -13,7 +13,7 @@ export default function RegisterPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
               Grids & Circles CAFE
             </h1>
-            <RegisterForm />
+            <SignupForm />
           </div>
         </div>
 

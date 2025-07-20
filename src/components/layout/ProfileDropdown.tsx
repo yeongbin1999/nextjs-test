@@ -36,7 +36,7 @@ export function ProfileDropdown() {
             <DropdownItem
               onClick={(e, close) => {
                 if (close) close();
-                setTimeout(() => router.push('/register'), 0);
+                setTimeout(() => router.push('/signup'), 0);
               }}
             >
               <div className="flex items-center space-x-2">

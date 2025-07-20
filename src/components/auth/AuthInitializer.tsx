@@ -9,7 +9,7 @@ export function AuthInitializer() {
 
   useEffect(() => {
     // 회원가입/로그인 페이지에서는 인증 상태 확인을 하지 않음
-    if (pathname === '/register' || pathname === '/login') {
+    if (pathname === '/signup' || pathname === '/login') {
       return;
     }
 
