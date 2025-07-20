@@ -86,23 +86,35 @@ apiClient.instance.interceptors.response.use(
       response: error.response?.data,
     });
 
+    // 회원가입, 로그인 등은 토큰 갱신을 시도하지 않음
+    const noAuthPaths = ['/api/v1/auth/signup', '/api/v1/auth/login'];
+    const isAuthPath = typeof error.config?.url === 'string' && 
+      noAuthPaths.some(path => error.config?.url?.includes(path));
+
     if (
       error.response?.status === 401 &&
       isBrowser &&
       typeof window !== 'undefined' &&
-      window.location.pathname !== '/login'
+      window.location.pathname !== '/login' &&
+      !isAuthPath // 인증 관련 API가 아닌 경우에만 토큰 갱신 시도
     ) {
+      console.log('🔄 401 에러 발생, 토큰 갱신 시도');
       // 1. refreshToken으로 재발급 시도
       try {
+        console.log('🔄 reissue API 호출');
         await apiClient.api.reissue();
+        console.log('✅ 토큰 갱신 성공');
         // 새 accessToken이 저장됨 (응답 인터셉터에서)
         // 원래 요청을 재시도
         if (error.config) {
+          console.log('🔄 원래 요청 재시도');
           return apiClient.instance.request(error.config);
         }
       } catch (refreshError) {
+        console.error('❌ 토큰 갱신 실패:', refreshError);
         // 2. 재발급도 실패하면 로그아웃
         localStorage.removeItem('accessToken');
+        console.log('🚪 로그인 페이지로 리다이렉트');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

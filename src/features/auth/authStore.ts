@@ -21,6 +21,7 @@ interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAuthChecked: boolean; // 인증 상태 확인 완료 여부
 
   // 로그인
   login: (email: string, password: string) => Promise<void>;
@@ -48,6 +49,7 @@ export const useAuthStore = create<AuthStore>(set => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  isAuthChecked: false,
 
   login: async (email: string, password: string) => {
     set({ isLoading: true });
@@ -171,13 +173,18 @@ export const useAuthStore = create<AuthStore>(set => ({
       if (!isBrowser) return;
 
       const token = localStorage.getItem('accessToken');
+      console.log('🔍 checkAuth 시작:', { hasToken: !!token });
+      
       if (!token) {
-        set({ user: null, isAuthenticated: false });
+        console.log('❌ 토큰이 없음');
+        set({ user: null, isAuthenticated: false, isAuthChecked: true });
         return;
       }
 
+      console.log('🔍 getMe API 호출 시작');
       const userResponse = await apiClient.api.getMe();
       const userData = userResponse.data;
+      console.log('✅ getMe API 성공:', userData);
 
       const user: User = {
         id: userData.id || 0,
@@ -188,13 +195,21 @@ export const useAuthStore = create<AuthStore>(set => ({
         role: 'USER',
       };
 
-      set({ user, isAuthenticated: true });
+      console.log('✅ 인증 상태 설정:', { user, isAuthenticated: true });
+      set({ user, isAuthenticated: true, isAuthChecked: true });
     } catch (error: unknown) {
-      console.error('인증 확인 에러:', error);
+      console.error('❌ 인증 확인 에러:', error);
+      console.error('에러 상세:', {
+        status: (error as any)?.response?.status,
+        data: (error as any)?.response?.data,
+        message: (error as any)?.message,
+      });
+      
       if (isBrowser) {
+        console.log('🗑️ 토큰 삭제');
         localStorage.removeItem('accessToken');
       }
-      set({ user: null, isAuthenticated: false });
+      set({ user: null, isAuthenticated: false, isAuthChecked: true });
     }
   },
 }));

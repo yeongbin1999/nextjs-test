@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value;
   const { pathname } = request.nextUrl;
 
   // 공개 경로 (권한 검증 불필요)
@@ -19,24 +18,8 @@ export function middleware(request: NextRequest) {
   const adminPaths = ['/admin'];
   const isAdminPath = adminPaths.some(path => pathname.startsWith(path));
 
-  // 1. 보호된 경로 접근 시 토큰 없으면 로그인 페이지로
-  if (isProtectedPath && !token) {
-    return NextResponse.redirect(
-      new URL('/login?redirect=' + pathname, request.url)
-    );
-  }
-
-  // 2. 관리자 경로 접근 시 토큰 없으면 로그인 페이지로
-  if (isAdminPath && !token) {
-    return NextResponse.redirect(
-      new URL('/login?redirect=' + pathname, request.url)
-    );
-  }
-
-  // 3. 로그인 페이지에서 이미 토큰이 있으면 홈으로
-  if (pathname === '/login' && token) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  // 클라이언트 사이드에서 인증 상태를 확인하므로 middleware에서는 리다이렉트하지 않음
+  // RouteGuard 컴포넌트에서 처리
 
   return NextResponse.next();
 }

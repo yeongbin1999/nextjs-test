@@ -10,13 +10,13 @@ interface RouteGuardProps {
 }
 
 export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAuthChecked } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // 로그인 상태 확인 중이면 대기
-    if (isAuthenticated === undefined) return;
+    // 인증 상태 확인이 완료되지 않았으면 대기
+    if (!isAuthChecked) return;
 
     if (!isAuthenticated) {
       // 로그인 없음 → 로그인 페이지로
@@ -29,10 +29,10 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
       router.push('/access-denied');
       return;
     }
-  }, [isAuthenticated, user?.role, requiredRole, router, pathname]);
+  }, [isAuthenticated, isAuthChecked, user?.role, requiredRole, router, pathname]);
 
-  // 로딩 상태
-  if (isAuthenticated === undefined) {
+  // 로딩 상태 (인증 상태 확인 중)
+  if (!isAuthChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -43,7 +43,7 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
     );
   }
 
-  // 로그인 필요
+  // 로그인 필요 (인증 상태 확인 완료 후)
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen">

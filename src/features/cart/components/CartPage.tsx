@@ -3,11 +3,13 @@
 import { useCartStore } from '@/features/cart/cartStore';
 import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { flushCartSync } from '@/features/cart/cartStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCart, updateCartItem, removeFromCart } from '@/features/cart/api';
+import { fetchCart, updateCartItem, removeFromCart, clearCart } from '@/features/cart/api';
 import { useAuthStore } from '@/features/auth/authStore';
+import { createOrder } from '@/features/orders/api';
+import { toast } from 'sonner';
 
 function CartSyncOnRouteChange() {
   const pathname = usePathname();
@@ -43,6 +45,7 @@ export function CartPage() {
   const removeItemZustand = useCartStore(state => state.removeItem);
   const getTotalPrice = useCartStore(state => state.getTotalPrice);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // React Query mutation for updateQuantity
   const updateQuantityMutation = useMutation({
@@ -60,6 +63,42 @@ export function CartPage() {
     },
   });
 
+  // React Query mutation for createOrder
+  const createOrderMutation = useMutation({
+    mutationFn: async (orderData: any) => createOrder(orderData),
+    onSuccess: async () => {
+      // 주문 생성 성공 후 장바구니 비우기
+      try {
+        if (isAuthenticated) {
+          await clearCart();
+        } else {
+          clearCartZustand();
+        }
+        queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+        toast.success('주문이 성공적으로 생성되었습니다!');
+        router.push('/orders');
+      } catch (error) {
+        console.error('Cart clear error:', error);
+        // 장바구니 비우기 실패해도 주문은 성공했으므로 주문 페이지로 이동
+        toast.success('주문이 성공적으로 생성되었습니다!');
+        router.push('/orders');
+      }
+    },
+    onError: (error: any) => {
+      console.error('Order creation error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      if (error.response?.status === 500) {
+        toast.error('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error.response?.status === 400) {
+        toast.error('잘못된 요청입니다. 입력 정보를 확인해주세요.');
+      } else {
+        toast.error('주문에 실패했습니다. 다시 시도해주세요.');
+      }
+    },
+  });
+
   const handleUpdateQuantity = (itemId: number, quantity: number) => {
     if (isAuthenticated) {
       updateQuantityMutation.mutate({ itemId, quantity });
@@ -74,6 +113,45 @@ export function CartPage() {
       removeItemZustand(itemId);
     }
   };
+
+  const handleCheckout = () => {
+    if (!isAuthenticated) {
+      toast.error('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('사용자 정보를 가져올 수 없습니다. 다시 로그인해주세요.');
+      router.push('/login');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('장바구니가 비어있습니다.');
+      return;
+    }
+
+    // 임시로 주문 생성 기능 비활성화 (백엔드 데이터베이스 이슈)
+    toast.error('주문 생성 기능이 일시적으로 비활성화되었습니다. 관리자에게 문의해주세요.');
+    return;
+
+    // 주문 데이터 생성 (상태는 백엔드에서 자동 설정)
+    const orderData = {
+      userId: user?.id,
+      deliveryId: 1, // 기본 배송 ID 추가
+      shippingAddress: user?.address || '주소 정보가 없습니다.',
+      items: items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      })),
+    };
+
+    createOrderMutation.mutate(orderData);
+  };
+
+  const clearCartZustand = useCartStore(state => state.clearCart);
 
   const subtotal = items.reduce(
     (total, item) => total + item.price * item.quantity,
@@ -209,8 +287,12 @@ export function CartPage() {
             </span>
           </div>
         </div>
-        <button className="w-full bg-amber-600 text-white py-3 rounded-lg mt-6 hover:bg-amber-700 transition-colors">
-          Proceed to Checkout
+        <button 
+          className="w-full bg-amber-600 text-white py-3 rounded-lg mt-6 hover:bg-amber-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          onClick={handleCheckout}
+          disabled={createOrderMutation.isPending || items.length === 0}
+        >
+          {createOrderMutation.isPending ? '주문 생성 중...' : '주문'}
         </button>
       </div>
     </div>

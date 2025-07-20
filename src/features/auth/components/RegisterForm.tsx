@@ -32,6 +32,8 @@ export function RegisterForm() {
     }
   }, [showSuccessModal]);
 
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -56,13 +58,24 @@ export function RegisterForm() {
       setShowSuccessModal(true);
       setIsLoading(false);
     } catch (error: unknown) {
-      console.error('회원가입 실패:', error);
+      // 사용자에게는 친화적인 메시지만 표시
       if (error instanceof Error) {
-        setError(
-          error.message || '회원가입에 실패했습니다. 다시 시도해주세요.'
-        );
+        const errorMessage = error.message;
+        
+        // 서버에서 반환한 메시지가 있으면 사용
+        if (errorMessage.includes('이메일') || errorMessage.includes('중복')) {
+          setError(errorMessage);
+        } else if (errorMessage.includes('비밀번호')) {
+          setError(errorMessage);
+        } else if (errorMessage.includes('네트워크') || errorMessage.includes('연결')) {
+          setError('네트워크 연결을 확인해주세요.');
+        } else if (errorMessage.includes('서버')) {
+          setError('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } else {
+          setError('회원가입에 실패했습니다. 입력 정보를 확인해주세요.');
+        }
       } else {
-        setError('회원가입에 실패했습니다. 다시 시도해주세요.');
+        setError('회원가입에 실패했습니다. 입력 정보를 확인해주세요.');
       }
       setIsLoading(false);
     }
@@ -241,7 +254,7 @@ export function RegisterForm() {
             홈으로 돌아가기
           </Link>
         </div>
-      </form>
+            </form>
 
       {/* 성공 모달 */}
       {renderSuccessModal()}

@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/authStore';
+import { apiClient } from '@/lib/backend/apiV1/client';
+import { toast } from 'sonner';
 
 export function ProfilePage() {
   const { user, updateUser } = useAuthStore();
   const [editMode, setEditMode] = useState(false);
   const [showPwModal, setShowPwModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [pwForm, setPwForm] = useState({
     current: '',
     newPw: '',
@@ -25,16 +29,61 @@ export function ProfilePage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return;
 
-    updateUser({
-      ...user,
-      name: form.name,
-      phone: form.phone,
-      address: form.address,
-    });
-    setEditMode(false);
+    // 폼 유효성 검사
+    if (!form.name.trim()) {
+      toast.error('이름을 입력해주세요.');
+      return;
+    }
+
+    if (form.phone && !/^[0-9-]+$/.test(form.phone)) {
+      toast.error('전화번호 형식이 올바르지 않습니다.');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      console.log('🔧 회원정보 수정 시작:', {
+        name: form.name.trim(),
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+      });
+
+      // API 호출하여 사용자 정보 업데이트
+      const response = await apiClient.api.updateMe({
+        name: form.name.trim(),
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+      });
+
+      console.log('✅ 회원정보 수정 성공:', response.data);
+
+      // 로컬 상태 업데이트
+      updateUser({
+        ...user,
+        name: form.name.trim(),
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+      });
+      
+      setEditMode(false);
+      toast.success('회원정보가 성공적으로 수정되었습니다.');
+    } catch (error: any) {
+      // 사용자에게는 친화적인 메시지만 표시
+      if (error.response?.status === 400) {
+        toast.error('입력 정보를 확인해주세요.');
+      } else if (error.response?.status === 401) {
+        toast.error('다시 로그인해주세요.');
+      } else if (error.response?.status === 500) {
+        toast.error('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        toast.error('회원정보 수정에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleCancel = () => {
@@ -47,14 +96,48 @@ export function ProfilePage() {
   };
 
   // 비밀번호 변경 모달 저장
-  const handlePwSave = () => {
-    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) return;
-    if (pwForm.newPw !== pwForm.confirm) return;
-    // 실제 비밀번호 변경 로직 필요 (API 연동)
-    setShowPwModal(false);
-    setPwForm({ current: '', newPw: '', confirm: '' });
-    setPwError('');
-    alert('비밀번호가 변경되었습니다. (실제 저장 로직 필요)');
+  const handlePwSave = async () => {
+    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) {
+      setPwError('모든 필드를 입력해주세요.');
+      return;
+    }
+    
+    if (pwForm.newPw !== pwForm.confirm) {
+      setPwError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (pwForm.newPw.length < 8) {
+      setPwError('새 비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // API 호출하여 비밀번호 변경
+      await apiClient.api.changePassword({
+        currentPassword: pwForm.current,
+        newPassword: pwForm.newPw,
+      });
+
+      setShowPwModal(false);
+      setPwForm({ current: '', newPw: '', confirm: '' });
+      setPwError('');
+      toast.success('비밀번호가 성공적으로 변경되었습니다.');
+    } catch (error: any) {
+      // 사용자에게는 친화적인 메시지만 표시
+      if (error.response?.status === 400) {
+        setPwError('현재 비밀번호를 확인해주세요.');
+      } else if (error.response?.status === 401) {
+        setPwError('다시 로그인해주세요.');
+      } else if (error.response?.status === 500) {
+        setPwError('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setPwError('비밀번호 변경에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const renderPasswordModal = () => {
@@ -94,13 +177,13 @@ export function ProfilePage() {
           {renderPasswordError()}
           <div className="flex justify-end gap-2 mt-4">
             <button
-              className="bg-amber-200 text-amber-900 px-3 py-2 rounded hover:bg-amber-300 text-sm font-semibold"
+              className="bg-amber-200 text-amber-900 px-3 py-2 rounded hover:bg-amber-300 text-sm font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed"
               onClick={handlePwSave}
               disabled={
-                !pwForm.current || !pwForm.newPw || !pwForm.confirm || !!pwError
+                !pwForm.current || !pwForm.newPw || !pwForm.confirm || !!pwError || isChangingPassword
               }
             >
-              변경
+              {isChangingPassword ? '변경 중...' : '변경'}
             </button>
             <button
               className="bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 text-sm font-semibold"
@@ -109,6 +192,7 @@ export function ProfilePage() {
                 setPwForm({ current: '', newPw: '', confirm: '' });
                 setPwError('');
               }}
+              disabled={isChangingPassword}
             >
               취소
             </button>
@@ -202,13 +286,15 @@ export function ProfilePage() {
             <>
               <button
                 onClick={handleSave}
-                className="bg-amber-200 text-amber-900 px-4 py-2 rounded hover:bg-amber-300 text-sm font-semibold shadow-sm transition"
+                className="bg-amber-200 text-amber-900 px-4 py-2 rounded hover:bg-amber-300 text-sm font-semibold shadow-sm transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                disabled={isUpdating}
               >
-                저장
+                {isUpdating ? '저장 중...' : '저장'}
               </button>
               <button
                 onClick={handleCancel}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 text-sm font-semibold shadow-sm transition"
+                disabled={isUpdating}
               >
                 취소
               </button>
